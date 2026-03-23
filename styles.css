@@ -1282,11 +1282,13 @@ input {
     margin-left: 4px;
   }
   
-  /* Кнопка выхода на мобильных - скрываем или уменьшаем */
-  .sidebar-logout {
-    padding: 8px 12px;
+   /* Кнопка выхода на мобильных - показываем, но уменьшаем */
+   .sidebar-logout {
+    display: flex;
+    padding: 6px 10px;
     font-size: 12px;
     margin: 0;
+    white-space: nowrap;
   }
   
   /* Основной контент */
@@ -1462,12 +1464,15 @@ input {
   .logo-subtitle {
     font-size: 8px;
   }
-  
-  /* Кнопка выхода на маленьких экранах */
+  /* Кнопка выхода на мобильных - показываем, но уменьшаем */
   .sidebar-logout {
+    display: flex;
     padding: 6px 10px;
-    font-size: 11px;
+    font-size: 12px;
+    margin: 0;
+    white-space: nowrap;
   }
+  
   
   /* Посты */
   .post {
