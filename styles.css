@@ -60,12 +60,13 @@ input {
   align-items: start;
 }
 
-/* SIDEBAR */
+/* SIDEBAR - по умолчанию sticky для десктопа */
 .sidebar {
   position: sticky;
   top: 20px;
   height: fit-content;
-  background: var(--bg-sidebar);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
   border-radius: var(--radius-lg);
   padding: 18px 16px 16px;
   display: flex;
@@ -330,43 +331,25 @@ input {
 
 .topbar-tabs {
   display: flex;
-  width: 100%;
-  gap: 0;
+  gap: 8px;
   background: transparent;
-  padding: 0;
   border-radius: 0;
-  border-bottom: 1px solid var(--border-soft);
+  padding: 0;
 }
 
 .topbar-tab {
-  flex: 1;
-  text-align: center;
-  padding: 12px 0;
-  font-size: 15px;
-  font-weight: 500;
   background: transparent;
-  border-radius: 0;
+  border: 1px solid var(--border-soft) !important;
+  border-radius: 30px;
+  padding: 8px 20px;
+  font-size: 14px;
   color: var(--text-muted);
-  position: relative;
-  transition: all 0.2s ease;
 }
 
 .topbar-tab-active {
+  border-color: var(--accent) !important;
   color: var(--accent-dark);
-  background: transparent;
-  box-shadow: none;
-  font-weight: 600;
-}
-
-.topbar-tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: var(--accent);
-  border-radius: 3px 3px 0 0;
+  background: var(--accent-soft);
 }
 
 .page {
@@ -1100,75 +1083,6 @@ input {
   margin-top: 8px;
 }
 
-/* RESPONSIVE */
-@media (max-width: 960px) {
-  .app {
-    grid-template-columns: 70px minmax(0, 1fr);
-    padding: 18px 16px;
-  }
-
-  .logo-text {
-    display: none;
-  }
-
-  .sidebar {
-    align-items: center;
-  }
-
-  .sidebar-nav .nav-label {
-    display: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 14px 10px;
-  }
-
-  .sidebar {
-    flex-direction: row;
-    align-items: center;
-    padding: 10px 12px;
-  }
-
-  .sidebar-nav {
-    flex-direction: row;
-    justify-content: center;
-  }
-
-  .sidebar-logout {
-    display: none;
-  }
-}
-/* ЛЕГКАЯ ПРОЗРАЧНОСТЬ */
-.sidebar {
-  background: rgba(255, 255, 255, 0.05) !important;
-  backdrop-filter: blur(10px);
-  box-shadow: none !important;
-}
-.topbar-tabs {
-  display: flex;
-  gap: 8px;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-}
-
-.topbar-tab {
-  background: transparent;
-  border: 1px solid var(--border-soft) !important;
-  border-radius: 30px;
-  padding: 8px 20px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.topbar-tab-active {
-  border-color: var(--accent) !important;
-  color: var(--accent-dark);
-  background: var(--accent-soft);
-}
 /* ========== АДАПТИВНЫЙ ДИЗАЙН ========== */
 
 /* ПЛАНШЕТЫ (768px - 1024px) */
@@ -1179,7 +1093,6 @@ input {
     gap: 16px;
   }
   
-  /* Скрываем текст в сайдбаре, оставляем только иконки */
   .nav-label {
     display: none;
   }
@@ -1208,7 +1121,6 @@ input {
     padding: 16px 8px;
   }
   
-  /* Лента и профиль */
   #page-feed,
   #page-profile {
     max-width: 100%;
@@ -1219,16 +1131,18 @@ input {
 
 /* МОБИЛЬНЫЕ ТЕЛЕФОНЫ (до 768px) */
 @media (max-width: 768px) {
-  /* Основная сетка - сайдбар остается сверху */
   .app {
     grid-template-columns: 1fr;
     padding: 12px;
     gap: 12px;
+    align-items: stretch;
   }
   
-  /* Сайдбар - горизонтальный, но сверху */
   .sidebar {
     position: relative;
+    top: 0;
+    height: auto;
+    align-self: stretch;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
@@ -1237,7 +1151,6 @@ input {
     margin-bottom: 12px;
   }
   
-  /* Логотип на мобильных */
   .sidebar-logo {
     display: flex;
     margin-bottom: 0;
@@ -1258,7 +1171,6 @@ input {
     font-size: 9px;
   }
   
-  /* Навигация горизонтально */
   .sidebar-nav {
     flex-direction: row;
     gap: 4px;
@@ -1282,8 +1194,7 @@ input {
     margin-left: 4px;
   }
   
-   /* Кнопка выхода на мобильных - показываем, но уменьшаем */
-   .sidebar-logout {
+  .sidebar-logout {
     display: flex;
     padding: 6px 10px;
     font-size: 12px;
@@ -1291,12 +1202,11 @@ input {
     white-space: nowrap;
   }
   
-  /* Основной контент */
   .main {
     margin-bottom: 0;
+    align-self: stretch;
   }
   
-  /* Лента и профиль на всю ширину */
   #page-feed,
   #page-profile {
     max-width: 100%;
@@ -1304,18 +1214,15 @@ input {
     margin-right: 0;
   }
   
-  /* Убираем отступы у композера */
   .composer {
     padding: 12px;
   }
   
-  /* Уменьшаем вкладки */
   .topbar-tab {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-size: 12px;
   }
   
-  /* Эмодзи панель - меньше кнопок */
   .emoji-panel {
     grid-template-columns: repeat(6, 1fr);
     max-width: 280px;
@@ -1326,7 +1233,6 @@ input {
     padding: 6px;
   }
   
-  /* Профиль - уменьшаем элементы */
   .profile-avatar {
     width: 70px;
     height: 70px;
@@ -1362,7 +1268,6 @@ input {
     font-size: 14px;
   }
   
-  /* Посты */
   .post {
     padding: 12px;
   }
@@ -1380,7 +1285,6 @@ input {
     font-size: 13px;
   }
   
-  /* Комментарии */
   .comment-item {
     font-size: 11px;
   }
@@ -1395,7 +1299,6 @@ input {
     padding: 6px 10px;
   }
   
-  /* Футер */
   .footer {
     flex-wrap: wrap;
     justify-content: center;
@@ -1410,14 +1313,12 @@ input {
     width: 100%;
   }
   
-  /* Кнопки */
   .btn-primary,
   .btn-secondary {
     padding: 6px 14px;
     font-size: 12px;
   }
   
-  /* Модальное окно */
   .modal {
     max-width: 90%;
     margin: 0 auto;
@@ -1434,7 +1335,6 @@ input {
     padding: 8px;
   }
   
-  /* Сайдбар еще компактнее */
   .sidebar {
     padding: 8px 12px;
   }
@@ -1464,17 +1364,13 @@ input {
   .logo-subtitle {
     font-size: 8px;
   }
-  /* Кнопка выхода на мобильных - показываем, но уменьшаем */
+  
   .sidebar-logout {
     display: flex;
-    padding: 6px 10px;
-    font-size: 12px;
-    margin: 0;
-    white-space: nowrap;
+    padding: 5px 10px;
+    font-size: 11px;
   }
   
-  
-  /* Посты */
   .post {
     padding: 10px;
   }
@@ -1497,7 +1393,6 @@ input {
     font-size: 12px;
   }
   
-  /* Эмодзи панель */
   .emoji-panel {
     grid-template-columns: repeat(5, 1fr);
     max-width: 240px;
@@ -1508,7 +1403,6 @@ input {
     padding: 5px;
   }
   
-  /* Профиль */
   .profile-avatar {
     width: 60px;
     height: 60px;
@@ -1544,7 +1438,6 @@ input {
     font-size: 13px;
   }
   
-  /* Кнопки в профиле */
   .profile-edit-button .btn-secondary,
   .profile-follow-container .btn-primary {
     padding: 6px 12px;
