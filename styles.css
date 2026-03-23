@@ -1546,10 +1546,8 @@ input {
     font-size: 12px;
   }
 }
-/* ТОЛЬКО ДЛЯ МОБИЛЬНЫХ ТЕЛЕФОНОВ - сайдбар прокручивается с лентой */
 @media (max-width: 768px) {
   .sidebar {
-    position: relative !important;
-    top: 0 !important;
+    position: static !important;
   }
 }
