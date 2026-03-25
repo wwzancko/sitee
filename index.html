@@ -6,6 +6,7 @@
   <title>Социальная Сеть Zachetka</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
   <!-- AUTH OVERLAY -->
   <div class="auth-overlay" id="auth-overlay">
@@ -320,6 +321,17 @@
       </form>
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ТВОИ ДАННЫЕ
+    const SUPABASE_URL = 'https://bjjjrnwrkqwgrgvcnjya.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_YNeEUc4wdejYB_yG491njQ_-0EljCW-';
+    
+    // Создаем клиент и делаем глобальным
+    window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase подключен!');
+  </script>
 
   <script src="script.js"></script>
 </body>
