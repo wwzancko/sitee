@@ -1,80 +1,378 @@
 const STORAGE_KEY = "zachetka-state-v1";
 
-function loadState() {
+// ============ СОСТОЯНИЕ ============
+let state = {
+  users: [],
+  posts: [],
+  currentUserId: null,
+  nextUserId: 3,
+  nextPostId: 3,
+  nextCommentId: 2
+};
+
+// ============ ПРОВЕРКА SUPABASE ============
+let useSupabase = typeof window.supabase !== 'undefined' && window.supabase;
+if (useSupabase) {
+  console.log('✅ Supabase подключен');
+} else {
+  console.log('⚠️ Supabase не подключен, используется локальное хранилище');
+}
+
+// ============ ЗАГРУЗКА ДАННЫХ ============
+async function loadFromSupabase() {
+  if (!useSupabase) return false;
+  
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
+    const { data: users, error: usersError } = await window.supabase
+      .from('users')
+      .select('*');
+    if (usersError) throw usersError;
+    state.users = users || [];
+    console.log('Загружено пользователей:', state.users.length);
+    
+    const { data: posts, error: postsError } = await window.supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (postsError) throw postsError;
+    
+    for (let post of (posts || [])) {
+      const { data: comments } = await window.supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', post.id);
+      post.comments = comments || [];
+    }
+    state.posts = posts || [];
+    console.log('Загружено постов:', state.posts.length);
+    
+    return true;
+  } catch (error) {
+    console.error('Ошибка загрузки:', error);
+    return false;
   }
 }
 
-function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function saveStateLocally() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    users: state.users,
+    posts: state.posts,
+    currentUserId: state.currentUserId,
+    nextUserId: state.nextUserId,
+    nextPostId: state.nextPostId,
+    nextCommentId: state.nextCommentId
+  }));
 }
 
-function createInitialState() {
-  const now = Date.now();
-  const user1 = {
-    id: 1,
-    displayName: "Ванек Зонт",
-    username: "zachetka",
-    avatarUrl: "",
-    createdAt: now - 1000 * 60 * 60 * 24 * 10,
-    passwordHash: null,
-    passwordSalt: null,
-    following: [2],
-    clan: "Клан ФТК",
-  };
-  const user2 = {
-    id: 2,
-    displayName: "seriqas",
-    username: "seriqas",
-    avatarUrl: "",
-    createdAt: now - 1000 * 60 * 60 * 24 * 30,
-    passwordHash: null,
-    passwordSalt: null,
-    following: [1],
-    clan: null,
-  };
-
-  const posts = [
-    {
-      id: 1,
-      authorId: 2,
-      text: "Пример поста в вашей социальной сети Zachetka.",
-      createdAt: now - 1000 * 60 * 53,
-      likes: [1],
-      comments: [
-        {
-          id: 1,
-          authorId: 1,
-          text: "Круто выглядит!",
-          createdAt: now - 1000 * 60 * 10,
-        },
-      ],
-    },
-    {
-      id: 2,
-      authorId: 1,
-      text: "Добро пожаловать в Социальную Сеть Zachetka!",
-      createdAt: now - 1000 * 60 * 60,
-      likes: [2],
-      comments: [],
-    },
-  ];
-
-  return {
-    users: [user1, user2],
-    posts,
-    currentUserId: null,
-    nextUserId: 3,
-    nextPostId: 3,
-    nextCommentId: 2,
-  };
+function loadStateLocally() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      state.users = saved.users || [];
+      state.posts = saved.posts || [];
+      state.currentUserId = saved.currentUserId;
+      state.nextUserId = saved.nextUserId || 3;
+      state.nextPostId = saved.nextPostId || 3;
+      state.nextCommentId = saved.nextCommentId || 2;
+    }
+  } catch (e) {
+    console.error('Ошибка загрузки из localStorage:', e);
+  }
 }
 
+// Проверка сессии
+async function checkSession() {
+  if (!useSupabase) return;
+  
+  try {
+    const { data: { session }, error } = await window.supabase.auth.getSession();
+    if (error) throw error;
+    
+    if (session) {
+      console.log('Сессия найдена:', session.user.email);
+      const user = state.users.find(u => u.email === session.user.email);
+      if (user) {
+        state.currentUserId = user.id;
+        console.log('Пользователь восстановлен:', user.username);
+      } else {
+        console.log('Пользователь не найден в таблице users, создаем...');
+        // Если пользователь есть в Auth, но нет в таблице - создаем
+        const { data: newUser, error: insertError } = await window.supabase
+          .from('users')
+          .insert([{
+            id: session.user.id,
+            email: session.user.email,
+            username: session.user.user_metadata?.username || session.user.email.split('@')[0],
+            display_name: session.user.user_metadata?.display_name || session.user.email.split('@')[0],
+            created_at: new Date(),
+            following: []
+          }])
+          .select()
+          .single();
+        
+        if (!insertError && newUser) {
+          state.users.push(newUser);
+          state.currentUserId = newUser.id;
+          console.log('Пользователь создан:', newUser);
+        }
+      }
+    } else {
+      console.log('Нет активной сессии');
+    }
+  } catch (error) {
+    console.error('Ошибка проверки сессии:', error);
+  }
+}
+
+async function initData() {
+  if (useSupabase) {
+    await loadFromSupabase();
+    await checkSession();
+  }
+  if (!state.users.length) loadStateLocally();
+  if (!state.users.length) {
+    const now = Date.now();
+    state.users = [
+      { id: 1, displayName: "Ванек Зонт", username: "zachetka", avatarUrl: "", createdAt: now - 1000 * 60 * 60 * 24 * 10, following: [2], clan: "Клан ФТК" },
+      { id: 2, displayName: "seriqas", username: "seriqas", avatarUrl: "", createdAt: now - 1000 * 60 * 60 * 24 * 30, following: [1], clan: null }
+    ];
+    state.posts = [
+      { id: 1, authorId: 2, text: "Пример поста в вашей социальной сети Zachetka.", createdAt: now - 1000 * 60 * 53, likes: [1], comments: [{ id: 1, authorId: 1, text: "Круто выглядит!", createdAt: now - 1000 * 60 * 10 }] },
+      { id: 2, authorId: 1, text: "Добро пожаловать в Социальную Сеть Zachetka!", createdAt: now - 1000 * 60 * 60, likes: [2], comments: [] }
+    ];
+  }
+  saveStateLocally();
+}
+
+// ============ РАБОТА С SUPABASE ============
+async function registerUserSupabase(displayName, username, email, password, avatarUrl = '') {
+  if (!useSupabase) {
+    const newUser = { id: state.nextUserId++, displayName, username, avatarUrl, createdAt: Date.now(), following: [] };
+    state.users.push(newUser);
+    state.currentUserId = newUser.id;
+    saveStateLocally();
+    return { success: true, user: newUser };
+  }
+  try {
+    console.log('Регистрация:', username, email);
+    
+    // Регистрация в Supabase Auth
+    const { data: authData, error: authError } = await window.supabase.auth.signUp({ 
+      email: email, 
+      password: password,
+      options: {
+        data: { 
+          username: username, 
+          display_name: displayName 
+        }
+      }
+    });
+    
+    if (authError) {
+      console.error('Ошибка Auth:', authError);
+      throw authError;
+    }
+    
+    console.log('Auth успешен, user id:', authData.user?.id);
+    
+    // Создаем запись в таблице users
+    const { data: userData, error: userError } = await window.supabase
+      .from('users')
+      .insert([{
+        id: authData.user.id,
+        email: email,
+        username: username,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        created_at: new Date(),
+        following: []
+      }])
+      .select()
+      .single();
+    
+    if (userError) {
+      console.error('Ошибка создания пользователя в таблице:', userError);
+      throw userError;
+    }
+    
+    console.log('Пользователь создан в таблице:', userData);
+    state.users.push(userData);
+    state.currentUserId = userData.id;
+    saveStateLocally();
+    
+    return { success: true, user: userData };
+  } catch (error) {
+    console.error('Ошибка регистрации:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function loginUserSupabase(username, password) {
+  if (!useSupabase) {
+    const user = state.users.find(u => u.username === username);
+    if (!user) return { success: false, error: 'Пользователь не найден' };
+    state.currentUserId = user.id;
+    saveStateLocally();
+    return { success: true, user };
+  }
+  try {
+    console.log('Попытка входа:', username);
+    
+    // Сначала находим пользователя по username в нашей таблице
+    const user = state.users.find(u => u.username === username);
+    if (!user) {
+      console.log('Пользователь не найден в таблице users');
+      return { success: false, error: 'Пользователь не найден' };
+    }
+    
+    console.log('Найден пользователь в таблице, email:', user.email);
+    
+    // Пытаемся войти через Auth
+    const { data: authData, error: authError } = await window.supabase.auth.signInWithPassword({ 
+      email: user.email, 
+      password: password 
+    });
+    
+    if (authError) {
+      console.error('Ошибка Auth:', authError.message);
+      return { success: false, error: 'Неверный пароль' };
+    }
+    
+    console.log('Вход успешен');
+    state.currentUserId = user.id;
+    saveStateLocally();
+    
+    return { success: true, user: user };
+  } catch (error) {
+    console.error('Ошибка входа:', error);
+    return { success: false, error: 'Ошибка входа: ' + error.message };
+  }
+}
+
+async function logoutUserSupabase() {
+  if (useSupabase) await window.supabase.auth.signOut();
+  state.currentUserId = null;
+  saveStateLocally();
+}
+
+async function createPostSupabase(text) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return false;
+  
+  if (!useSupabase) {
+    const newPost = { 
+      id: state.nextPostId++, 
+      authorId: currentUser.id, 
+      text, 
+      createdAt: Date.now(), 
+      likes: [], 
+      comments: [] 
+    };
+    state.posts.unshift(newPost);
+    saveStateLocally();
+    updateAllUI();
+    return true;
+  }
+  
+  try {
+    const { data, error } = await window.supabase
+      .from('posts')
+      .insert([{ 
+        author_id: currentUser.id, 
+        text: text, 
+        created_at: new Date(), 
+        likes: [] 
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    data.comments = [];
+    state.posts.unshift(data);
+    updateAllUI();
+    return true;
+  } catch (error) {
+    console.error('Ошибка создания поста:', error);
+    return false;
+  }
+}
+
+async function deletePostSupabase(postId) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return false;
+  const post = state.posts.find(p => p.id === postId);
+  const isAuthor = useSupabase ? post?.author_id === currentUser.id : post?.authorId === currentUser.id;
+  if (!post || !isAuthor) { alert("Нельзя удалить чужой пост!"); return false; }
+  if (!confirm("Удалить пост?")) return false;
+  if (!useSupabase) {
+    state.posts = state.posts.filter(p => p.id !== postId);
+    saveStateLocally();
+    updateAllUI();
+    return true;
+  }
+  try {
+    await window.supabase.from('posts').delete().eq('id', postId);
+    state.posts = state.posts.filter(p => p.id !== postId);
+    updateAllUI();
+    return true;
+  } catch (error) {
+    console.error('Ошибка удаления:', error);
+    return false;
+  }
+}
+
+async function toggleLikeSupabase(postId) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+  const post = state.posts.find(p => p.id === postId);
+  if (!post) return;
+  const likes = post.likes || [];
+  const hasLiked = likes.includes(currentUser.id);
+  const newLikes = hasLiked ? likes.filter(id => id !== currentUser.id) : [...likes, currentUser.id];
+  if (!useSupabase) {
+    post.likes = newLikes;
+    saveStateLocally();
+    updateAllUI();
+    return;
+  }
+  try {
+    await window.supabase.from('posts').update({ likes: newLikes }).eq('id', postId);
+    post.likes = newLikes;
+    updateAllUI();
+  } catch (error) {
+    console.error('Ошибка лайка:', error);
+  }
+}
+
+async function addCommentSupabase(postId, text) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+  if (!useSupabase) {
+    const post = state.posts.find(p => p.id === postId);
+    if (post) {
+      post.comments.push({ id: state.nextCommentId++, authorId: currentUser.id, text, createdAt: Date.now() });
+      saveStateLocally();
+      updateAllUI();
+    }
+    return;
+  }
+  try {
+    const { data, error } = await window.supabase.from('comments').insert([{ post_id: postId, author_id: currentUser.id, text, created_at: new Date() }]).select().single();
+    if (!error && data) {
+      const post = state.posts.find(p => p.id === postId);
+      if (post) { if (!post.comments) post.comments = []; post.comments.push(data); }
+      updateAllUI();
+    }
+  } catch (error) {
+    console.error('Ошибка комментария:', error);
+  }
+}
+
+// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
+function getUser(id) { return state.users.find(u => u.id === id) || null; }
+function getCurrentUser() { return state.currentUserId ? getUser(state.currentUserId) : null; }
 function timeAgo(timestamp) {
   const diffSec = Math.floor((Date.now() - timestamp) / 1000);
   if (diffSec < 60) return "только что";
@@ -85,942 +383,302 @@ function timeAgo(timestamp) {
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays} дн. назад`;
 }
+function fileToDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); }
 
-function generateSalt(length = 16) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+// ============ ТЕМА ============
+function getCurrentTheme() { return localStorage.getItem('theme') || 'light'; }
+function setTheme(theme) {
+  if (theme === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark'); const btn = document.getElementById('theme-toggle'); if (btn) btn.textContent = '☀️'; }
+  else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'light'); const btn = document.getElementById('theme-toggle'); if (btn) btn.textContent = '🌙'; }
+}
+function toggleTheme() { setTheme(getCurrentTheme() === 'light' ? 'dark' : 'light'); }
+
+// ============ ОТРИСОВКА ============
+function renderTopClans() {
+  const clanTopListEl = document.getElementById("clan-top-list");
+  if (!clanTopListEl) return;
+  const counts = {};
+  state.users.forEach(u => { if (u.clan) counts[u.clan] = (counts[u.clan] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  clanTopListEl.innerHTML = "";
+  if (!entries.length) { clanTopListEl.innerHTML = '<span class="empty-text">Пока никто не выбрал клан</span>'; return; }
+  entries.forEach(([name, count]) => { const btn = document.createElement("button"); btn.className = "tag-pill"; btn.textContent = `${name} · ${count} чел.`; clanTopListEl.appendChild(btn); });
 }
 
-async function hashPassword(password, salt) {
-  const enc = new TextEncoder();
-  const data = enc.encode(`${salt}:${password}`);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashPasswordLegacy(password) {
-  const enc = new TextEncoder();
-  const data = enc.encode(password);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
+function renderFeed() {
+  const feedListEl = document.getElementById("feed-list");
+  if (!feedListEl) return;
+  const current = getCurrentUser();
+  let posts = [...state.posts];
+  posts.sort((a, b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  feedListEl.innerHTML = "";
+  posts.forEach(post => {
+    const authorId = post.authorId || post.author_id;
+    const author = getUser(authorId);
+    if (!author) return;
+    const isLiked = current ? (post.likes || []).includes(current.id) : false;
+    const postTime = post.createdAt || new Date(post.created_at).getTime();
+    const postEl = document.createElement("article");
+    postEl.className = "post";
+    postEl.dataset.postId = String(post.id);
+    postEl.innerHTML = `
+      <header class="post-header">
+        <div class="post-avatar js-profile-link" data-user-id="${author.id}">${author.avatarUrl ? `<img src="${author.avatarUrl}" />` : (author.display_name || author.displayName)[0]?.toUpperCase() || "U"}</div>
+        <div><div class="post-author js-profile-link" data-user-id="${author.id}">${author.display_name || author.displayName}</div><div class="post-meta">${timeAgo(postTime)} • @${author.username}</div></div>
+        ${current && current.id === author.id ? `<button class="post-delete-btn js-delete-post" title="Удалить пост">🗑️</button>` : ''}
+      </header>
+      <div class="post-content"><p class="post-text">${post.text}</p></div>
+      <footer class="post-footer"><button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button><button class="js-comment-toggle">💬 ${(post.comments || []).length}</button></footer>
+      <div class="comments" style="display:none"><div class="comments-list">${(post.comments || []).map(c => { const cu = getUser(c.authorId || c.author_id); return `<div class="comment-item"><span class="comment-author js-profile-link" data-user-id="${c.authorId || c.author_id}">${cu ? (cu.display_name || cu.displayName) : "Пользователь"}</span><span class="comment-text">${c.text}</span></div>`; }).join('')}</div><div class="comment-input-row"><input type="text" placeholder="Написать комментарий..." /><button class="js-comment-send">Отправить</button></div></div>
+    `;
+    feedListEl.appendChild(postEl);
   });
 }
 
-// Функции для переключения темы
-function getCurrentTheme() {
-  return localStorage.getItem('theme') || 'light';
-}
-
-function setTheme(theme) {
-  if (theme === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    localStorage.setItem('theme', 'dark');
-    const themeBtn = document.getElementById('theme-toggle');
-    if (themeBtn) themeBtn.textContent = '☀️';
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-    localStorage.setItem('theme', 'light');
-    const themeBtn = document.getElementById('theme-toggle');
-    if (themeBtn) themeBtn.textContent = '🌙';
+function renderProfile() {
+  const profileNameEl = document.getElementById("profile-name");
+  const profileUsernameEl = document.getElementById("profile-username");
+  const profileAvatarEl = document.getElementById("profile-avatar");
+  const profileEditBtn = document.getElementById("profile-edit-btn");
+  const profileFollowBtn = document.getElementById("profile-follow-btn");
+  const current = getCurrentUser();
+  const user = viewedProfileId ? getUser(viewedProfileId) : current;
+  if (!user) return;
+  if (profileNameEl) profileNameEl.textContent = user.display_name || user.displayName;
+  if (profileUsernameEl) profileUsernameEl.textContent = `@${user.username}`;
+  if (profileAvatarEl) {
+    const avatarUrl = user.avatar_url || user.avatarUrl;
+    if (avatarUrl) profileAvatarEl.innerHTML = `<img src="${avatarUrl}" />`;
+    else profileAvatarEl.textContent = (user.display_name || user.displayName)[0]?.toUpperCase() || "U";
   }
+  const profileClanEl = document.getElementById('profile-clan');
+  if (profileClanEl) profileClanEl.textContent = user.clan || '';
+  const profileRegdate = document.getElementById('profile-regdate');
+  if (profileRegdate) {
+    const date = new Date(user.createdAt || user.created_at);
+    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    profileRegdate.textContent = `Регистрация: ${months[date.getMonth()]} ${date.getFullYear()} г.`;
+  }
+  const followersCount = state.users.filter(u => (u.following || []).includes(user.id)).length;
+  const followingCount = (user.following || []).length;
+  const postsCount = state.posts.filter(p => (p.authorId || p.author_id) === user.id).length;
+  document.getElementById('profile-posts-count') && (document.getElementById('profile-posts-count').textContent = postsCount);
+  document.getElementById('profile-followers-count') && (document.getElementById('profile-followers-count').textContent = followersCount);
+  document.getElementById('profile-following-count') && (document.getElementById('profile-following-count').textContent = followingCount);
+  const isOwn = current && current.id === user.id;
+  if (profileFollowBtn) {
+    if (!current || isOwn) profileFollowBtn.style.display = 'none';
+    else { profileFollowBtn.style.display = 'block'; profileFollowBtn.textContent = (current.following || []).includes(user.id) ? 'Отписаться' : 'Подписаться'; }
+  }
+  if (profileEditBtn) profileEditBtn.style.display = isOwn ? 'block' : 'none';
+  const profileComposer = document.getElementById('profile-composer');
+  if (profileComposer) profileComposer.style.display = isOwn ? 'flex' : 'none';
+  const profilePostsEl = document.getElementById('profile-posts');
+  if (!profilePostsEl) return;
+  const activeTab = document.querySelector('.profile-tab-active')?.dataset.profileTab || 'posts';
+  let posts = [];
+  if (activeTab === 'posts') posts = state.posts.filter(p => (p.authorId || p.author_id) === user.id).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  else posts = state.posts.filter(p => (p.likes || []).includes(user.id)).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  if (posts.length === 0) { profilePostsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p class="empty-title">Нет ${activeTab === 'posts' ? 'постов' : 'лайков'}</p></div>`; return; }
+  profilePostsEl.innerHTML = '';
+  posts.forEach(post => {
+    const authorId = post.authorId || post.author_id;
+    const author = getUser(authorId);
+    if (!author) return;
+    const isLiked = current ? (post.likes || []).includes(current.id) : false;
+    const postTime = post.createdAt || new Date(post.created_at).getTime();
+    const postEl = document.createElement('article');
+    postEl.className = 'post';
+    postEl.dataset.postId = String(post.id);
+    postEl.innerHTML = `
+      <header class="post-header">
+        <div class="post-avatar js-profile-link" data-user-id="${author.id}">${author.avatar_url || author.avatarUrl ? `<img src="${author.avatar_url || author.avatarUrl}" />` : (author.display_name || author.displayName)[0]?.toUpperCase() || "U"}</div>
+        <div><div class="post-author js-profile-link" data-user-id="${author.id}">${author.display_name || author.displayName}</div><div class="post-meta">${timeAgo(postTime)} • @${author.username}</div></div>
+        ${current && current.id === author.id ? `<button class="post-delete-btn js-delete-post">🗑️</button>` : ''}
+      </header>
+      <div class="post-content"><p class="post-text">${post.text}</p></div>
+      <footer class="post-footer"><button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button><button class="js-comment-toggle">💬 ${(post.comments || []).length}</button></footer>
+      <div class="comments" style="display:none"><div class="comments-list">${(post.comments || []).map(c => { const cu = getUser(c.authorId || c.author_id); return `<div class="comment-item"><span class="comment-author js-profile-link" data-user-id="${c.authorId || c.author_id}">${cu ? (cu.display_name || cu.displayName) : "Пользователь"}</span><span class="comment-text">${c.text}</span></div>`; }).join('')}</div><div class="comment-input-row"><input type="text" placeholder="Написать комментарий..." /><button class="js-comment-send">Отправить</button></div></div>
+    `;
+    profilePostsEl.appendChild(postEl);
+  });
 }
 
-function toggleTheme() {
-  const currentTheme = getCurrentTheme();
-  setTheme(currentTheme === 'light' ? 'dark' : 'light');
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  (async () => {
-    let state = loadState() || createInitialState();
-
-    const navItems = document.querySelectorAll(".nav-item");
-    const pages = document.querySelectorAll(".page");
-
-    const authOverlay = document.getElementById("auth-overlay");
-    const authTabs = document.querySelectorAll(".auth-tab");
-    const loginForm = document.getElementById("login-form");
-    const registerForm = document.getElementById("register-form");
-    const loginError = document.getElementById("login-error");
-    const registerError = document.getElementById("register-error");
-
-    const feedListEl = document.getElementById("feed-list");
-    const feedComposerInput = document.getElementById("feed-composer-input");
-    const feedPublishBtn = document.getElementById("feed-publish-btn");
-
-    const profileNameEl = document.getElementById("profile-name");
-    const profileUsernameEl = document.getElementById("profile-username");
-    const profileAvatarEl = document.getElementById("profile-avatar");
-    const profileEditBtn = document.getElementById("profile-edit-btn");
-    const profileFollowBtn = document.getElementById("profile-follow-btn");
-    const profilePostsEl = document.getElementById("profile-posts");
-    const profileComposerSection = document.getElementById("profile-composer");
-    const profileComposerInput = document.getElementById("profile-composer-input");
-
-    const profileModalBackdrop = document.getElementById("profile-modal-backdrop");
-    const profileModalClose = document.getElementById("profile-modal-close");
-    const profileModalCancel = document.getElementById("profile-modal-cancel");
-    const profileEditForm = document.getElementById("profile-edit-form");
-    const profileEditError = document.getElementById("profile-edit-error");
-    const editDisplayInput = document.getElementById("edit-displayname");
-    const editUsernameInput = document.getElementById("edit-username");
-    const editClanSelect = document.getElementById("edit-clan");
-    const editAvatarFileInput = document.getElementById("edit-avatar-file");
-    const editAvatarRemoveBtn = document.getElementById("edit-avatar-remove");
-
-    const feedTabs = document.querySelectorAll(".topbar-tab");
-    const clanTopListEl = document.getElementById("clan-top-list");
-
-    let viewedProfileId = null;
-    let currentFeedFilter = "all";
-    let pendingAvatarRemove = false;
-
-    // Инициализация темы
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-
-    function getUser(id) {
-      return state.users.find((u) => u.id === id) || null;
-    }
-
-    function getCurrentUser() {
-      if (!state.currentUserId) return null;
-      return getUser(state.currentUserId);
-    }
-
-    function setCurrentUser(userId) {
-      state.currentUserId = userId;
-      saveState(state);
-      if (authOverlay) {
-        authOverlay.classList.add("hidden");
-      }
-      viewedProfileId = userId;
-      updateAllUI();
-    }
-
-    function setActivePage(pageName) {
-      navItems.forEach((btn) => {
-        const pageId = btn.getAttribute("data-page");
-        if (pageId === pageName) {
-          btn.classList.add("active");
-        } else {
-          btn.classList.remove("active");
-        }
-      });
-
-      pages.forEach((page) => {
-        if (page.id === `page-${pageName}`) {
-          page.classList.add("page-active");
-        } else {
-          page.classList.remove("page-active");
-        }
-      });
-    }
-
-    function showAuthTab(tab) {
-      authTabs.forEach((btn) => {
-        const isActive = btn.dataset.authTab === tab;
-        btn.classList.toggle("auth-tab-active", isActive);
-      });
-      if (!loginForm || !registerForm) return;
-      if (tab === "login") {
-        loginForm.classList.add("auth-form-active");
-        registerForm.classList.remove("auth-form-active");
-      } else {
-        registerForm.classList.add("auth-form-active");
-        loginForm.classList.remove("auth-form-active");
-      }
-      loginError.textContent = "";
-      registerError.textContent = "";
-    }
-
-    function getFollowersCount(userId) {
-      return state.users.filter((u) => (u.following || []).includes(userId)).length;
-    }
-
-    function getFriendIds(userId) {
-      const user = getUser(userId);
-      if (!user) return [];
-      const following = user.following || [];
-      return following.filter((fid) => {
-        const other = getUser(fid);
-        return other && (other.following || []).includes(userId);
-      });
-    }
-
-    function renderTopClans() {
-      if (!clanTopListEl) return;
-      const counts = {};
-      state.users.forEach((u) => {
-        if (u.clan) {
-          counts[u.clan] = (counts[u.clan] || 0) + 1;
-        }
-      });
-      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-
-      clanTopListEl.innerHTML = "";
-      if (!entries.length) {
-        const span = document.createElement("span");
-        span.className = "empty-text";
-        span.textContent = "Пока никто не выбрал клан";
-        clanTopListEl.appendChild(span);
-        return;
-      }
-
-      entries.forEach(([name, count]) => {
-        const btn = document.createElement("button");
-        btn.className = "tag-pill";
-        btn.textContent = `${name} · ${count} чел.`;
-        clanTopListEl.appendChild(btn);
-      });
-    }
-
-    function renderFeed() {
-      if (!feedListEl) return;
-      const current = getCurrentUser();
-      let posts = [...state.posts];
-
-      if (current) {
-        const currentId = current.id;
-        const followingSet = new Set(current.following || []);
-        const friendsSet = new Set(getFriendIds(currentId));
-
-        if (currentFeedFilter === "friends") {
-          posts = posts.filter(
-            (p) => friendsSet.has(p.authorId) || p.authorId === currentId
-          );
-        } else if (currentFeedFilter === "following") {
-          posts = posts.filter(
-            (p) => followingSet.has(p.authorId) || p.authorId === currentId
-          );
-        }
-      }
-
-      posts.sort((a, b) => b.createdAt - a.createdAt);
-
-      feedListEl.innerHTML = "";
-
-      posts.forEach((post) => {
-        const author = getUser(post.authorId);
-        if (!author) return;
-        const isLiked = current ? post.likes.includes(current.id) : false;
-
-        const postEl = document.createElement("article");
-        postEl.className = "post";
-        postEl.dataset.postId = String(post.id);
-
-        postEl.innerHTML = `
-        <header class="post-header">
-          <div class="post-avatar js-profile-link" data-user-id="${author.id}">
-            ${author.avatarUrl ? `<img src="${author.avatarUrl}" alt="" />` : author.displayName[0]?.toUpperCase() || "U"}
-          </div>
-          <div>
-            <div class="post-author js-profile-link" data-user-id="${author.id}">
-              ${author.displayName}
-            </div>
-            <div class="post-meta">
-              ${timeAgo(post.createdAt)} • @${author.username}
-            </div>
-          </div>
-          ${current && current.id === author.id ? `
-            <button class="post-delete-btn js-delete-post" title="Удалить пост">🗑️</button>
-          ` : ''}
-        </header>
-        <div class="post-content">
-          <p class="post-text">${post.text}</p>
-        </div>
-        <footer class="post-footer">
-          <button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${post.likes.length}</button>
-          <button class="js-comment-toggle">💬 ${post.comments.length}</button>
-        </footer>
-        <div class="comments" style="display:none">
-          <div class="comments-list">
-            ${post.comments
-              .map((c) => {
-                const cu = getUser(c.authorId);
-                const name = cu ? cu.displayName : "Пользователь";
-                return `<div class="comment-item">
-                    <span class="comment-author js-profile-link" data-user-id="${c.authorId}">${name}</span>
-                    <span class="comment-text">${c.text}</span>
-                  </div>`;
-              })
-              .join("")}
-          </div>
-          <div class="comment-input-row">
-            <input type="text" placeholder="Написать комментарий..." />
-            <button class="js-comment-send">Отправить</button>
-          </div>
-        </div>
-      `;
-
-        feedListEl.appendChild(postEl);
-      });
-    }
-
-    function renderProfile() {
-      const current = getCurrentUser();
-      const user = viewedProfileId ? getUser(viewedProfileId) : current;
-      if (!user) return;
-
-      if (profileNameEl) profileNameEl.textContent = user.displayName;
-      if (profileUsernameEl) profileUsernameEl.textContent = `@${user.username}`;
-      
-      if (profileAvatarEl) {
-        if (user.avatarUrl) {
-          profileAvatarEl.innerHTML = `<img src="${user.avatarUrl}" alt="" />`;
-        } else {
-          profileAvatarEl.textContent = user.displayName[0]?.toUpperCase() || "U";
-        }
-      }
-
-      const profileClanEl = document.getElementById('profile-clan');
-      if (profileClanEl) {
-        profileClanEl.textContent = user.clan ? user.clan : '';
-      }
-
-      const profileRegdate = document.getElementById('profile-regdate');
-      if (profileRegdate) {
-        const date = new Date(user.createdAt);
-        const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 
-                        'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-        const month = months[date.getMonth()];
-        const year = date.getFullYear();
-        profileRegdate.textContent = `Регистрация: ${month} ${year} г.`;
-      }
-
-      const followersCount = getFollowersCount(user.id);
-      const followingCount = (user.following || []).length;
-      const postsCount = state.posts.filter(p => p.authorId === user.id).length;
-
-      const postsCountEl = document.getElementById('profile-posts-count');
-      const followersCountEl = document.getElementById('profile-followers-count');
-      const followingCountEl = document.getElementById('profile-following-count');
-      
-      if (postsCountEl) postsCountEl.textContent = postsCount;
-      if (followersCountEl) followersCountEl.textContent = followersCount;
-      if (followingCountEl) followingCountEl.textContent = followingCount;
-
-      const isOwn = current && current.id === user.id;
-      
-      const followBtn = document.getElementById('profile-follow-btn');
-      const editBtn = document.getElementById('profile-edit-btn');
-      const profileComposer = document.getElementById('profile-composer');
-      
-      if (followBtn) {
-        if (!current || isOwn) {
-          followBtn.style.display = 'none';
-        } else {
-          followBtn.style.display = 'block';
-          const isFollowing = (current.following || []).includes(user.id);
-          followBtn.textContent = isFollowing ? 'Отписаться' : 'Подписаться';
-        }
-      }
-      
-      if (editBtn) {
-        editBtn.style.display = isOwn ? 'block' : 'none';
-      }
-
-      if (profileComposer) {
-        profileComposer.style.display = isOwn ? 'flex' : 'none';
-      }
-
-      const profilePostsEl = document.getElementById('profile-posts');
-      if (!profilePostsEl) return;
-
-      const activeTab = document.querySelector('.profile-tab-active')?.dataset.profileTab || 'posts';
-      
-      let posts = [];
-      if (activeTab === 'posts') {
-        posts = state.posts
-          .filter(p => p.authorId === user.id)
-          .sort((a, b) => b.createdAt - a.createdAt);
-      } else {
-        posts = state.posts
-          .filter(p => p.likes.includes(user.id))
-          .sort((a, b) => b.createdAt - a.createdAt);
-      }
-
-      if (posts.length === 0) {
-        profilePostsEl.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">📭</div>
-            <p class="empty-title">Нет ${activeTab === 'posts' ? 'постов' : 'лайков'}</p>
-            <p class="empty-text">
-              ${current && current.id === user.id 
-                ? activeTab === 'posts' 
-                  ? 'Поделитесь своим первым постом!' 
-                  : 'Здесь будут посты, которые вы лайкнули'
-                : activeTab === 'posts'
-                  ? 'У пользователя пока нет постов'
-                  : 'Пользователь пока ничего не лайкнул'}
-            </p>
-          </div>
-        `;
-        return;
-      }
-
-      profilePostsEl.innerHTML = '';
-      posts.forEach((post) => {
-        const author = getUser(post.authorId);
-        if (!author) return;
-        
-        const isLiked = current ? post.likes.includes(current.id) : false;
-        
-        const postEl = document.createElement('article');
-        postEl.className = 'post';
-        postEl.dataset.postId = String(post.id);
-
-        postEl.innerHTML = `
-          <header class="post-header">
-            <div class="post-avatar js-profile-link" data-user-id="${author.id}">
-              ${author.avatarUrl ? `<img src="${author.avatarUrl}" alt="" />` : author.displayName[0]?.toUpperCase() || "U"}
-            </div>
-            <div>
-              <div class="post-author js-profile-link" data-user-id="${author.id}">
-                ${author.displayName}
-              </div>
-              <div class="post-meta">
-                ${timeAgo(post.createdAt)} • @${author.username}
-              </div>
-            </div>
-            ${current && current.id === author.id ? `
-              <button class="post-delete-btn js-delete-post" title="Удалить пост">🗑️</button>
-            ` : ''}
-          </header>
-          <div class="post-content">
-            <p class="post-text">${post.text}</p>
-          </div>
-          <footer class="post-footer">
-            <button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${post.likes.length}</button>
-            <button class="js-comment-toggle">💬 ${post.comments.length}</button>
-          </footer>
-          <div class="comments" style="display:none">
-            <div class="comments-list">
-              ${post.comments
-                .map((c) => {
-                  const cu = getUser(c.authorId);
-                  const name = cu ? cu.displayName : "Пользователь";
-                  return `<div class="comment-item">
-                      <span class="comment-author js-profile-link" data-user-id="${c.authorId}">${name}</span>
-                      <span class="comment-text">${c.text}</span>
-                    </div>`;
-                })
-                .join("")}
-            </div>
-            <div class="comment-input-row">
-              <input type="text" placeholder="Написать комментарий..." />
-              <button class="js-comment-send">Отправить</button>
-            </div>
-          </div>
-        `;
-
-        profilePostsEl.appendChild(postEl);
-      });
-    }
-
-    function updateAllUI() {
-      renderFeed();
-      renderProfile();
-      renderTopClans();
-    }
-
-    // Обработчики навигации
-    navItems.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const pageId = btn.getAttribute("data-page");
-        if (!pageId) return;
-        setActivePage(pageId);
-        if (pageId === "profile") {
-          viewedProfileId = state.currentUserId;
-          renderProfile();
-        }
-      });
-    });
-
-    // Обработчики вкладок ленты
-    feedTabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        feedTabs.forEach((t) => t.classList.remove("topbar-tab-active"));
-        tab.classList.add("topbar-tab-active");
-        const label = tab.textContent.trim();
-        if (label.startsWith("Лента друзей")) {
-          currentFeedFilter = "friends";
-        } else if (label.startsWith("Подписки")) {
-          currentFeedFilter = "following";
-        } else {
-          currentFeedFilter = "all";
-        }
-        renderFeed();
-      });
-    });
-
-    // Обработчики темы
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', toggleTheme);
-    }
-
-    // Обработчики авторизации
-    document
-      .querySelectorAll("[data-auth-tab-switch]")
-      .forEach((btn) =>
-        btn.addEventListener("click", () =>
-          showAuthTab(btn.getAttribute("data-auth-tab-switch"))
-        )
-      );
-
-    authTabs.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        showAuthTab(btn.dataset.authTab);
-      });
-    });
-
-    loginForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!loginForm) return;
-      const username = document.getElementById("login-username").value.trim();
-      const password = document.getElementById("login-password").value.trim();
-      loginError.textContent = "";
-
-      const user = state.users.find(
-        (u) => u.username.toLowerCase() === username.toLowerCase()
-      );
-      if (!user) {
-        loginError.textContent = "Пользователь не найден";
-        return;
-      }
-
-      if (!password || password.length < 6) {
-        loginError.textContent = "Пароль слишком короткий.";
-        return;
-      }
-
-      if (user.passwordSalt) {
-        const hash = await hashPassword(password, user.passwordSalt);
-        if (user.passwordHash !== hash) {
-          loginError.textContent = "Неверный пароль";
-          return;
-        }
-      } else if (user.passwordHash) {
-        const legacyHash = await hashPasswordLegacy(password);
-        if (legacyHash !== user.passwordHash) {
-          loginError.textContent = "Неверный пароль";
-          return;
-        }
-        const salt = generateSalt();
-        user.passwordSalt = salt;
-        user.passwordHash = await hashPassword(password, salt);
-        saveState(state);
-      } else {
-        const salt = generateSalt();
-        user.passwordSalt = salt;
-        user.passwordHash = await hashPassword(password, salt);
-        saveState(state);
-      }
-      setCurrentUser(user.id);
-    });
-
-    registerForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const displayName = document.getElementById("reg-displayname").value.trim();
-      const username = document.getElementById("reg-username").value.trim();
-      const avatarFileInput = document.getElementById("reg-avatar-file");
-      const avatarFile = avatarFileInput?.files?.[0] || null;
-      const password = document.getElementById("reg-password").value.trim();
-      registerError.textContent = "";
-
-      if (!displayName || !username || !password) {
-        registerError.textContent = "Заполните все обязательные поля.";
-        return;
-      }
-
-      if (password.length < 6) {
-        registerError.textContent = "Пароль должен быть не короче 6 символов.";
-        return;
-      }
-
-      if (!/[A-Za-zА-Яа-я]/.test(password) || !/\d/.test(password)) {
-        registerError.textContent =
-          "Пароль должен содержать буквы и цифры.";
-        return;
-      }
-
-      if (state.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-        registerError.textContent = "Этот юзернейм уже занят.";
-        return;
-      }
-
-      let avatarUrl = "";
-      if (avatarFile) {
-        if (avatarFile.size > 1024 * 1024) {
-          registerError.textContent = "Размер аватарки не должен превышать 1 МБ.";
-          return;
-        }
-        try {
-          avatarUrl = await fileToDataUrl(avatarFile);
-        } catch {
-          registerError.textContent = "Не удалось загрузить аватарку.";
-          return;
-        }
-      }
-
-      const salt = generateSalt();
-      const passwordHash = await hashPassword(password, salt);
-
-      const newUser = {
-        id: state.nextUserId++,
-        displayName,
-        username,
-        avatarUrl,
-        createdAt: Date.now(),
-        passwordHash,
-        passwordSalt: salt,
-        following: [],
-      };
-      state.users.push(newUser);
-      saveState(state);
-      setCurrentUser(newUser.id);
-    });
-
-    function handlePublishPost(source) {
-      const current = getCurrentUser();
-      if (!current) return;
-      const textarea =
-        source === "feed" ? feedComposerInput : profileComposerInput;
-      if (!textarea) return;
-      const text = textarea.value.trim();
-      if (!text) return;
-
-      const post = {
-        id: state.nextPostId++,
-        authorId: current.id,
-        text,
-        createdAt: Date.now(),
-        likes: [],
-        comments: [],
-      };
-      state.posts.push(post);
-      saveState(state);
-      textarea.value = "";
-      updateAllUI();
-    }
-
-    feedPublishBtn?.addEventListener("click", () => handlePublishPost("feed"));
-    profileComposerSection
-      ?.querySelector("#profile-publish-btn")
-      ?.addEventListener("click", () => handlePublishPost("profile"));
-
-    function toggleLike(postId) {
-      const current = getCurrentUser();
-      if (!current) return;
-      const post = state.posts.find((p) => p.id === postId);
-      if (!post) return;
-      const idx = post.likes.indexOf(current.id);
-      if (idx === -1) post.likes.push(current.id);
-      else post.likes.splice(idx, 1);
-      saveState(state);
-      updateAllUI();
-    }
-    
-    function addComment(postId, text) {
-      const current = getCurrentUser();
-      if (!current) return;
-      const post = state.posts.find((p) => p.id === postId);
-      if (!post) return;
-      post.comments.push({
-        id: state.nextCommentId++,
-        authorId: current.id,
-        text,
-        createdAt: Date.now(),
-      });
-      saveState(state);
-      updateAllUI();
-    }
-    
-    function deletePost(postId) {
-      const current = getCurrentUser();
-      if (!current) return;
-      
-      const postIndex = state.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) return;
-      
-      const post = state.posts[postIndex];
-      
-      if (post.authorId !== current.id) {
-        alert("Нельзя удалить чужой пост!");
-        return;
-      }
-      
-      if (confirm("Вы уверены, что хотите удалить этот пост?")) {
-        state.posts.splice(postIndex, 1);
-        saveState(state);
-        updateAllUI();
-      }
-    }
-
-    function handleFeedClick(container, event) {
-      const target = event.target;
-      const postEl = target.closest(".post");
-      if (!postEl) return;
-      const postId = Number(postEl.dataset.postId);
-
-      if (target.classList.contains("js-like-btn")) {
-        toggleLike(postId);
-        return;
-      }
-
-      if (target.classList.contains("js-delete-post") || target.closest(".js-delete-post")) {
-        deletePost(postId);
-        return;
-      }
-
-      if (
-        target.classList.contains("js-comment-toggle") ||
-        target.closest(".js-comment-toggle")
-      ) {
-        const commentsEl = postEl.querySelector(".comments");
-        if (commentsEl) {
-          commentsEl.style.display =
-            commentsEl.style.display === "none" || !commentsEl.style.display
-              ? "block"
-              : "none";
-        }
-        return;
-      }
-
-      if (
-        target.classList.contains("js-comment-send") ||
-        target.closest(".js-comment-send")
-      ) {
-        const row = target.closest(".comment-input-row");
-        const input = row?.querySelector("input");
-        const text = input?.value.trim();
-        if (text) {
-          addComment(postId, text);
-        }
-        return;
-      }
-
-      if (
-        target.classList.contains("js-profile-link") ||
-        target.closest(".js-profile-link")
-      ) {
-        const el = target.closest(".js-profile-link");
-        const userId = Number(el.dataset.userId);
-        if (userId) {
-          viewedProfileId = userId;
-          setActivePage("profile");
-          renderProfile();
-        }
-      }
-    }
-
-    feedListEl?.addEventListener("click", (e) => handleFeedClick(feedListEl, e));
-    profilePostsEl?.addEventListener("click", (e) =>
-      handleFeedClick(profilePostsEl, e)
-    );
-
-    // Обработчики для вкладок профиля
-    const profileTabs = document.querySelectorAll('.profile-tab');
-    if (profileTabs.length > 0) {
-      profileTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          profileTabs.forEach(t => t.classList.remove('profile-tab-active'));
-          tab.classList.add('profile-tab-active');
-          renderProfile();
-        });
-      });
-    }
-
-    function openProfileModal() {
-      const current = getCurrentUser();
-      if (!current) return;
-      editDisplayInput.value = current.displayName;
-      editUsernameInput.value = current.username;
-      if (editClanSelect) {
-        editClanSelect.value = current.clan || "";
-      }
-      if (editAvatarFileInput) {
-        editAvatarFileInput.value = "";
-      }
-      pendingAvatarRemove = false;
-      profileEditError.textContent = "";
-      profileModalBackdrop.classList.add("visible");
-    }
-
-    function closeProfileModal() {
-      profileModalBackdrop.classList.remove("visible");
-    }
-
-    profileEditBtn?.addEventListener("click", openProfileModal);
-    profileModalClose?.addEventListener("click", closeProfileModal);
-    profileModalCancel?.addEventListener("click", closeProfileModal);
-
-    editAvatarRemoveBtn?.addEventListener("click", () => {
-      pendingAvatarRemove = true;
-      if (editAvatarFileInput) {
-        editAvatarFileInput.value = "";
-      }
-    });
-
-    profileEditForm?.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const current = getCurrentUser();
-      if (!current) return;
-      const displayName = editDisplayInput.value.trim();
-      const username = editUsernameInput.value.trim();
-      const clan = editClanSelect ? editClanSelect.value : "";
-      profileEditError.textContent = "";
-
-      if (!displayName || !username) {
-        profileEditError.textContent = "Имя и юзернейм обязательны.";
-        return;
-      }
-
-      if (
-        state.users.some(
-          (u) =>
-            u.id !== current.id && u.username.toLowerCase() === username.toLowerCase()
-        )
-      ) {
-        profileEditError.textContent = "Такой юзернейм уже занят.";
-        return;
-      }
-
-      const clearAvatar = pendingAvatarRemove;
-
-      const applyUpdate = (avatarUrl) => {
-        current.displayName = displayName;
-        current.username = username;
-        current.clan = clan || null;
-        if (clearAvatar) {
-          current.avatarUrl = "";
-        } else if (avatarUrl !== null) {
-          current.avatarUrl = avatarUrl;
-        }
-        saveState(state);
-        closeProfileModal();
-        updateAllUI();
-      };
-
-      const avatarFile = editAvatarFileInput?.files?.[0] || null;
-      if (avatarFile && !clearAvatar) {
-        if (avatarFile.size > 1024 * 1024) {
-          profileEditError.textContent = "Размер аватарки не должен превышать 1 МБ.";
-          return;
-        }
-        fileToDataUrl(avatarFile)
-          .then((url) => applyUpdate(url))
-          .catch(() => {
-            profileEditError.textContent = "Не удалось загрузить аватарку.";
-          });
-      } else {
-        applyUpdate(null);
-      }
-    });
-
-    const sidebarLogout = document.querySelector(".sidebar-logout");
-    sidebarLogout?.addEventListener("click", () => {
-      state.currentUserId = null;
-      saveState(state);
-      if (authOverlay) {
-        authOverlay.classList.remove("hidden");
-        showAuthTab("login");
-      }
-    });
-
-    // Функционал эмодзи
-    function initEmojiPicker() {
-      const emojiBtn = document.getElementById('emoji-picker-btn');
-      if (!emojiBtn) return;
-      
-      const emojis = [
-        '😊', '😂', '🤣', '❤️', '😍', '😒', '👌', '👍',
-        '🔥', '🎉', '✨', '⭐', '💯', '✅', '❌', '💔',
-        '😢', '😭', '😘', '😁', '🤔', '😎', '🙄', '😴',
-        '🎓', '📚', '✏️', '📝', '💻', '📱', '🎮', '🏀'
-      ];
-      
-      const emojiPanel = document.createElement('div');
-      emojiPanel.className = 'emoji-panel';
-      emojiPanel.style.display = 'none';
-      
-      emojis.forEach(emoji => {
-        const btn = document.createElement('button');
-        btn.textContent = emoji;
-        btn.type = 'button';
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          insertEmoji(emoji);
-        });
-        emojiPanel.appendChild(btn);
-      });
-      
-      const composerMain = document.querySelector('.composer-main');
-      if (composerMain) {
-        composerMain.appendChild(emojiPanel);
-      }
-      
-      emojiBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (emojiPanel.style.display === 'none') {
-          emojiPanel.style.display = 'grid';
-        } else {
-          emojiPanel.style.display = 'none';
-        }
-      });
-      
-      document.addEventListener('click', (e) => {
-        if (!emojiBtn.contains(e.target) && !emojiPanel.contains(e.target)) {
-          emojiPanel.style.display = 'none';
-        }
-      });
-      
-      function insertEmoji(emoji) {
-        const activeInput = document.activeElement;
-        if (activeInput === feedComposerInput || activeInput === profileComposerInput) {
-          const start = activeInput.selectionStart;
-          const end = activeInput.selectionEnd;
-          const text = activeInput.value;
-          activeInput.value = text.substring(0, start) + emoji + text.substring(end);
-          activeInput.selectionStart = activeInput.selectionEnd = start + emoji.length;
-          activeInput.focus();
-        } else if (feedComposerInput) {
-          feedComposerInput.value += emoji;
-          feedComposerInput.focus();
-        }
-        emojiPanel.style.display = 'none';
-      }
-    }
-
-    // Запускаем инициализацию эмодзи
-    initEmojiPicker();
-
-    const loginUser = getCurrentUser();
-    if (!loginUser) {
-      if (authOverlay) authOverlay.classList.remove("hidden");
-      showAuthTab("login");
-    } else {
-      if (authOverlay) authOverlay.classList.add("hidden");
-      viewedProfileId = loginUser.id;
-      updateAllUI();
-    }
-  })();
+function updateAllUI() { renderFeed(); renderProfile(); renderTopClans(); }
+
+// ============ ОБРАБОТЧИКИ ============
+let viewedProfileId = null;
+let currentFeedFilter = "all";
+let pendingAvatarRemove = false;
+
+document.addEventListener("DOMContentLoaded", async () => {
+  await initData();
+  
+  const navItems = document.querySelectorAll(".nav-item");
+  const pages = document.querySelectorAll(".page");
+  const authOverlay = document.getElementById("auth-overlay");
+  const authTabs = document.querySelectorAll(".auth-tab");
+  const loginForm = document.getElementById("login-form");
+  const registerForm = document.getElementById("register-form");
+  const loginError = document.getElementById("login-error");
+  const registerError = document.getElementById("register-error");
+  const feedListEl = document.getElementById("feed-list");
+  const feedComposerInput = document.getElementById("feed-composer-input");
+  const feedPublishBtn = document.getElementById("feed-publish-btn");
+  const profileComposerSection = document.getElementById("profile-composer");
+  const profileComposerInput = document.getElementById("profile-composer-input");
+  const profilePostsEl = document.getElementById("profile-posts");
+  const profileEditBtn = document.getElementById("profile-edit-btn");
+  const profileFollowBtn = document.getElementById("profile-follow-btn");
+  const profileModalBackdrop = document.getElementById("profile-modal-backdrop");
+  const profileModalClose = document.getElementById("profile-modal-close");
+  const profileModalCancel = document.getElementById("profile-modal-cancel");
+  const profileEditForm = document.getElementById("profile-edit-form");
+  const profileEditError = document.getElementById("profile-edit-error");
+  const editDisplayInput = document.getElementById("edit-displayname");
+  const editUsernameInput = document.getElementById("edit-username");
+  const editClanSelect = document.getElementById("edit-clan");
+  const editAvatarFileInput = document.getElementById("edit-avatar-file");
+  const editAvatarRemoveBtn = document.getElementById("edit-avatar-remove");
+  const feedTabs = document.querySelectorAll(".topbar-tab");
+  
+  setTheme(getCurrentTheme());
+  
+  function setActivePage(pageName) {
+    navItems.forEach(btn => { if (btn.getAttribute("data-page") === pageName) btn.classList.add("active"); else btn.classList.remove("active"); });
+    pages.forEach(page => { if (page.id === `page-${pageName}`) page.classList.add("page-active"); else page.classList.remove("page-active"); });
+  }
+  
+  function showAuthTab(tab) {
+    authTabs.forEach(btn => btn.classList.toggle("auth-tab-active", btn.dataset.authTab === tab));
+    if (tab === "login") { loginForm.classList.add("auth-form-active"); registerForm.classList.remove("auth-form-active"); }
+    else { registerForm.classList.add("auth-form-active"); loginForm.classList.remove("auth-form-active"); }
+    loginError.textContent = ""; registerError.textContent = "";
+  }
+  
+  navItems.forEach(btn => btn.addEventListener("click", () => { const pageId = btn.getAttribute("data-page"); if (pageId) { setActivePage(pageId); if (pageId === "profile") { viewedProfileId = state.currentUserId; renderProfile(); } } }));
+  feedTabs.forEach(tab => tab.addEventListener("click", () => { feedTabs.forEach(t => t.classList.remove("topbar-tab-active")); tab.classList.add("topbar-tab-active"); const label = tab.textContent.trim(); if (label.startsWith("Лента друзей")) currentFeedFilter = "friends"; else if (label.startsWith("Подписки")) currentFeedFilter = "following"; else currentFeedFilter = "all"; renderFeed(); }));
+  document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+  document.querySelectorAll("[data-auth-tab-switch]").forEach(btn => btn.addEventListener("click", () => showAuthTab(btn.getAttribute("data-auth-tab-switch"))));
+  authTabs.forEach(btn => btn.addEventListener("click", () => showAuthTab(btn.dataset.authTab)));
+  
+  loginForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("login-username").value.trim();
+    const password = document.getElementById("login-password").value.trim();
+    loginError.textContent = "";
+    const result = await loginUserSupabase(username, password);
+    if (result.success) { authOverlay.classList.add("hidden"); viewedProfileId = state.currentUserId; updateAllUI(); }
+    else loginError.textContent = result.error;
+  });
+  
+  registerForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const displayName = document.getElementById("reg-displayname").value.trim();
+    const username = document.getElementById("reg-username").value.trim();
+    const email = `${username}@zachetka.com`;
+    const password = document.getElementById("reg-password").value.trim();
+    const avatarFile = document.getElementById("reg-avatar-file")?.files?.[0];
+    registerError.textContent = "";
+    if (!displayName || !username || !password) { registerError.textContent = "Заполните все поля"; return; }
+    if (password.length < 6) { registerError.textContent = "Пароль минимум 6 символов"; return; }
+    if (state.users.some(u => u.username === username)) { registerError.textContent = "Юзернейм уже занят"; return; }
+    let avatarUrl = "";
+    if (avatarFile) { if (avatarFile.size > 1024*1024) { registerError.textContent = "Аватарка не более 1 МБ"; return; } try { avatarUrl = await fileToDataUrl(avatarFile); } catch { registerError.textContent = "Ошибка загрузки аватарки"; return; } }
+    const result = await registerUserSupabase(displayName, username, email, password, avatarUrl);
+    if (result.success) { authOverlay.classList.add("hidden"); viewedProfileId = state.currentUserId; updateAllUI(); }
+    else registerError.textContent = result.error;
+  });
+  
+  async function handlePublishPost(source) {
+    const current = getCurrentUser();
+    if (!current) return;
+    const textarea = source === "feed" ? feedComposerInput : profileComposerInput;
+    const text = textarea?.value.trim();
+    if (!text) return;
+    const success = await createPostSupabase(text);
+    if (success) { textarea.value = ""; updateAllUI(); }
+  }
+  
+  feedPublishBtn?.addEventListener("click", () => handlePublishPost("feed"));
+  profileComposerSection?.querySelector("#profile-publish-btn")?.addEventListener("click", () => handlePublishPost("profile"));
+  
+  async function toggleLike(postId) { await toggleLikeSupabase(postId); }
+  async function addComment(postId, text) { await addCommentSupabase(postId, text); }
+  async function deletePost(postId) { await deletePostSupabase(postId); }
+  
+  function handleFeedClick(container, event) {
+    const target = event.target;
+    const postEl = target.closest(".post");
+    if (!postEl) return;
+    const postId = Number(postEl.dataset.postId);
+    if (target.classList.contains("js-like-btn")) { toggleLike(postId); return; }
+    if (target.classList.contains("js-delete-post") || target.closest(".js-delete-post")) { deletePost(postId); return; }
+    if (target.classList.contains("js-comment-toggle") || target.closest(".js-comment-toggle")) { const commentsEl = postEl.querySelector(".comments"); if (commentsEl) commentsEl.style.display = commentsEl.style.display === "none" ? "block" : "none"; return; }
+    if (target.classList.contains("js-comment-send") || target.closest(".js-comment-send")) { const row = target.closest(".comment-input-row"); const input = row?.querySelector("input"); const text = input?.value.trim(); if (text) addComment(postId, text); return; }
+    if (target.classList.contains("js-profile-link") || target.closest(".js-profile-link")) { const el = target.closest(".js-profile-link"); const userId = Number(el.dataset.userId); if (userId) { viewedProfileId = userId; setActivePage("profile"); renderProfile(); } }
+  }
+  
+  feedListEl?.addEventListener("click", e => handleFeedClick(feedListEl, e));
+  profilePostsEl?.addEventListener("click", e => handleFeedClick(profilePostsEl, e));
+  
+  document.querySelectorAll('.profile-tab').forEach(tab => tab.addEventListener('click', () => { document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('profile-tab-active')); tab.classList.add('profile-tab-active'); renderProfile(); }));
+  
+  function openProfileModal() {
+    const current = getCurrentUser();
+    if (!current) return;
+    editDisplayInput.value = current.display_name || current.displayName;
+    editUsernameInput.value = current.username;
+    if (editClanSelect) editClanSelect.value = current.clan || "";
+    if (editAvatarFileInput) editAvatarFileInput.value = "";
+    pendingAvatarRemove = false;
+    profileEditError.textContent = "";
+    profileModalBackdrop.classList.add("visible");
+  }
+  function closeProfileModal() { profileModalBackdrop.classList.remove("visible"); }
+  profileEditBtn?.addEventListener("click", openProfileModal);
+  profileModalClose?.addEventListener("click", closeProfileModal);
+  profileModalCancel?.addEventListener("click", closeProfileModal);
+  editAvatarRemoveBtn?.addEventListener("click", () => { pendingAvatarRemove = true; if (editAvatarFileInput) editAvatarFileInput.value = ""; });
+  
+  profileEditForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const current = getCurrentUser();
+    if (!current) return;
+    const displayName = editDisplayInput.value.trim();
+    const username = editUsernameInput.value.trim();
+    const clan = editClanSelect?.value || "";
+    if (!displayName || !username) { profileEditError.textContent = "Имя и юзернейм обязательны"; return; }
+    if (state.users.some(u => u.id !== current.id && u.username === username)) { profileEditError.textContent = "Юзернейм уже занят"; return; }
+    const updateData = { display_name: displayName, username, clan: clan || null };
+    if (pendingAvatarRemove) updateData.avatar_url = "";
+    const avatarFile = editAvatarFileInput?.files?.[0];
+    if (avatarFile && !pendingAvatarRemove) { if (avatarFile.size > 1024*1024) { profileEditError.textContent = "Аватарка не более 1 МБ"; return; } try { updateData.avatar_url = await fileToDataUrl(avatarFile); } catch { profileEditError.textContent = "Ошибка загрузки"; return; } }
+    if (useSupabase) { await window.supabase.from('users').update(updateData).eq('id', current.id); }
+    Object.assign(current, updateData);
+    saveStateLocally();
+    closeProfileModal();
+    updateAllUI();
+  });
+  
+  document.querySelector(".sidebar-logout")?.addEventListener("click", async () => { await logoutUserSupabase(); if (authOverlay) { authOverlay.classList.remove("hidden"); showAuthTab("login"); } updateAllUI(); });
+  
+  // Эмодзи
+  function initEmojiPicker() {
+    const emojiBtn = document.getElementById('emoji-picker-btn');
+    if (!emojiBtn) return;
+    const emojis = ['😊','😂','🤣','❤️','😍','😒','👌','👍','🔥','🎉','✨','⭐','💯','✅','❌','💔','😢','😭','😘','😁','🤔','😎','🙄','😴','🎓','📚','✏️','📝','💻','📱','🎮','🏀'];
+    const panel = document.createElement('div');
+    panel.className = 'emoji-panel';
+    panel.style.display = 'none';
+    emojis.forEach(e => { const btn = document.createElement('button'); btn.textContent = e; btn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); const inp = document.activeElement; if (inp === feedComposerInput || inp === profileComposerInput) { const s = inp.selectionStart; inp.value = inp.value.slice(0,s) + e + inp.value.slice(inp.selectionEnd); inp.selectionStart = inp.selectionEnd = s + e.length; inp.focus(); } else if (feedComposerInput) feedComposerInput.value += e; panel.style.display = 'none'; }); panel.appendChild(btn); });
+    document.querySelector('.composer-main')?.appendChild(panel);
+    emojiBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); panel.style.display = panel.style.display === 'none' ? 'grid' : 'none'; });
+    document.addEventListener('click', (e) => { if (!emojiBtn.contains(e.target) && !panel.contains(e.target)) panel.style.display = 'none'; });
+  }
+  initEmojiPicker();
+  
+  const loginUser = getCurrentUser();
+  if (!loginUser) { authOverlay.classList.remove("hidden"); showAuthTab("login"); }
+  else { authOverlay.classList.add("hidden"); viewedProfileId = loginUser.id; updateAllUI(); }
 });
