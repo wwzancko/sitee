@@ -371,7 +371,9 @@ async function addCommentSupabase(postId, text) {
 }
 
 // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
-function getUser(id) { return state.users.find(u => u.id === id) || null; }
+function getUser(id) {
+  return state.users.find(u => u.id === id) || null;
+}
 function getCurrentUser() { return state.currentUserId ? getUser(state.currentUserId) : null; }
 function timeAgo(timestamp) {
   const diffSec = Math.floor((Date.now() - timestamp) / 1000);
@@ -408,29 +410,75 @@ function renderTopClans() {
 function renderFeed() {
   const feedListEl = document.getElementById("feed-list");
   if (!feedListEl) return;
+  
   const current = getCurrentUser();
   let posts = [...state.posts];
-  posts.sort((a, b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  
+  posts.sort((a, b) => {
+    const timeA = a.createdAt || new Date(a.created_at).getTime();
+    const timeB = b.createdAt || new Date(b.created_at).getTime();
+    return timeB - timeA;
+  });
+  
   feedListEl.innerHTML = "";
+  
   posts.forEach(post => {
     const authorId = post.authorId || post.author_id;
     const author = getUser(authorId);
     if (!author) return;
+    
     const isLiked = current ? (post.likes || []).includes(current.id) : false;
     const postTime = post.createdAt || new Date(post.created_at).getTime();
+    
+    const avatarUrl = author.avatar_url || author.avatarUrl || "";
+    const displayName = author.display_name || author.displayName || "Пользователь";
+    const username = author.username || "unknown";
+    
     const postEl = document.createElement("article");
     postEl.className = "post";
     postEl.dataset.postId = String(post.id);
+    
     postEl.innerHTML = `
       <header class="post-header">
-        <div class="post-avatar js-profile-link" data-user-id="${author.id}">${author.avatarUrl ? `<img src="${author.avatarUrl}" />` : (author.display_name || author.displayName)[0]?.toUpperCase() || "U"}</div>
-        <div><div class="post-author js-profile-link" data-user-id="${author.id}">${author.display_name || author.displayName}</div><div class="post-meta">${timeAgo(postTime)} • @${author.username}</div></div>
+        <div class="post-avatar js-profile-link" data-user-id="${author.id}" style="cursor: pointer;">
+          ${avatarUrl ? `<img src="${avatarUrl}" />` : displayName[0]?.toUpperCase() || "U"}
+        </div>
+        <div style="flex:1;">
+          <div class="post-author js-profile-link" data-user-id="${author.id}" style="cursor: pointer; font-weight: bold;">
+            ${displayName}
+          </div>
+          <div class="post-meta">
+            ${timeAgo(postTime)} • @${username}
+          </div>
+        </div>
         ${current && current.id === author.id ? `<button class="post-delete-btn js-delete-post" title="Удалить пост">🗑️</button>` : ''}
       </header>
-      <div class="post-content"><p class="post-text">${post.text}</p></div>
-      <footer class="post-footer"><button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button><button class="js-comment-toggle">💬 ${(post.comments || []).length}</button></footer>
-      <div class="comments" style="display:none"><div class="comments-list">${(post.comments || []).map(c => { const cu = getUser(c.authorId || c.author_id); return `<div class="comment-item"><span class="comment-author js-profile-link" data-user-id="${c.authorId || c.author_id}">${cu ? (cu.display_name || cu.displayName) : "Пользователь"}</span><span class="comment-text">${c.text}</span></div>`; }).join('')}</div><div class="comment-input-row"><input type="text" placeholder="Написать комментарий..." /><button class="js-comment-send">Отправить</button></div></div>
+      <div class="post-content">
+        <p class="post-text">${post.text || ""}</p>
+      </div>
+      <footer class="post-footer">
+        <button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button>
+        <button class="js-comment-toggle">💬 ${(post.comments || []).length}</button>
+      </footer>
+      <div class="comments" style="display:none">
+        <div class="comments-list">
+          ${(post.comments || []).map(c => {
+            const cu = getUser(c.authorId || c.author_id);
+            const cuName = cu ? (cu.display_name || cu.displayName || "Пользователь") : "Пользователь";
+            const cuId = c.authorId || c.author_id;
+            return `<div class="comment-item">
+              <span class="comment-author js-profile-link" data-user-id="${cuId}" style="cursor: pointer; font-weight: bold;">${cuName}</span>
+              <span class="comment-text">${c.text || ""}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="comment-input-row">
+          <input type="text" placeholder="Написать комментарий..." />
+          <button class="js-comment-send">Отправить</button>
+        </div>
+      </div>
     `;
+    
     feedListEl.appendChild(postEl);
   });
 }
@@ -444,42 +492,113 @@ function renderProfile() {
   const current = getCurrentUser();
   const user = viewedProfileId ? getUser(viewedProfileId) : current;
   if (!user) return;
+  
   if (profileNameEl) profileNameEl.textContent = user.display_name || user.displayName;
   if (profileUsernameEl) profileUsernameEl.textContent = `@${user.username}`;
+  
   if (profileAvatarEl) {
     const avatarUrl = user.avatar_url || user.avatarUrl;
     if (avatarUrl) profileAvatarEl.innerHTML = `<img src="${avatarUrl}" />`;
     else profileAvatarEl.textContent = (user.display_name || user.displayName)[0]?.toUpperCase() || "U";
   }
+  
   const profileClanEl = document.getElementById('profile-clan');
   if (profileClanEl) profileClanEl.textContent = user.clan || '';
+  
   const profileRegdate = document.getElementById('profile-regdate');
   if (profileRegdate) {
     const date = new Date(user.createdAt || user.created_at);
     const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
     profileRegdate.textContent = `Регистрация: ${months[date.getMonth()]} ${date.getFullYear()} г.`;
   }
+  
   const followersCount = state.users.filter(u => (u.following || []).includes(user.id)).length;
   const followingCount = (user.following || []).length;
   const postsCount = state.posts.filter(p => (p.authorId || p.author_id) === user.id).length;
+  
   document.getElementById('profile-posts-count') && (document.getElementById('profile-posts-count').textContent = postsCount);
   document.getElementById('profile-followers-count') && (document.getElementById('profile-followers-count').textContent = followersCount);
   document.getElementById('profile-following-count') && (document.getElementById('profile-following-count').textContent = followingCount);
+  
   const isOwn = current && current.id === user.id;
+  
   if (profileFollowBtn) {
-    if (!current || isOwn) profileFollowBtn.style.display = 'none';
-    else { profileFollowBtn.style.display = 'block'; profileFollowBtn.textContent = (current.following || []).includes(user.id) ? 'Отписаться' : 'Подписаться'; }
+    if (!current || isOwn) {
+      profileFollowBtn.style.display = 'none';
+    } else {
+      profileFollowBtn.style.display = 'block';
+      const isFollowing = (current.following || []).includes(user.id);
+      profileFollowBtn.textContent = isFollowing ? 'Отписаться' : 'Подписаться';
+    }
   }
+  
   if (profileEditBtn) profileEditBtn.style.display = isOwn ? 'block' : 'none';
   const profileComposer = document.getElementById('profile-composer');
   if (profileComposer) profileComposer.style.display = isOwn ? 'flex' : 'none';
+  
+  // ============ ОБРАБОТЧИК КНОПКИ ПОДПИСКИ ============
+  const followButton = document.getElementById('profile-follow-btn');
+  if (followButton && !isOwn && current) {
+    // Убираем старые обработчики
+    const newFollowBtn = followButton.cloneNode(true);
+    followButton.parentNode.replaceChild(newFollowBtn, followButton);
+    
+    newFollowBtn.addEventListener('click', async () => {
+      const currentUser = getCurrentUser();
+      const targetUser = user;
+      
+      if (!currentUser) return;
+      if (currentUser.id === targetUser.id) return;
+      
+      const isFollowing = (currentUser.following || []).includes(targetUser.id);
+      
+      let newFollowing;
+      if (isFollowing) {
+        newFollowing = (currentUser.following || []).filter(id => id !== targetUser.id);
+        newFollowBtn.textContent = 'Подписаться';
+      } else {
+        newFollowing = [...(currentUser.following || []), targetUser.id];
+        newFollowBtn.textContent = 'Отписаться';
+      }
+      
+      currentUser.following = newFollowing;
+      
+      if (useSupabase) {
+        const { error } = await window.supabase
+          .from('users')
+          .update({ following: newFollowing })
+          .eq('id', currentUser.id);
+        
+        if (error) {
+          console.error('Ошибка подписки:', error);
+          alert('Ошибка при подписке');
+          return;
+        }
+      }
+      
+      saveStateLocally();
+      renderProfile(); // Обновляем профиль для обновления счетчиков
+    });
+  }
+  
+  // ============ ОТРИСОВКА ПОСТОВ ============
   const profilePostsEl = document.getElementById('profile-posts');
   if (!profilePostsEl) return;
+  
   const activeTab = document.querySelector('.profile-tab-active')?.dataset.profileTab || 'posts';
   let posts = [];
-  if (activeTab === 'posts') posts = state.posts.filter(p => (p.authorId || p.author_id) === user.id).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
-  else posts = state.posts.filter(p => (p.likes || []).includes(user.id)).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
-  if (posts.length === 0) { profilePostsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p class="empty-title">Нет ${activeTab === 'posts' ? 'постов' : 'лайков'}</p></div>`; return; }
+  
+  if (activeTab === 'posts') {
+    posts = state.posts.filter(p => (p.authorId || p.author_id) === user.id).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  } else {
+    posts = state.posts.filter(p => (p.likes || []).includes(user.id)).sort((a,b) => (b.createdAt || new Date(b.created_at).getTime()) - (a.createdAt || new Date(a.created_at).getTime()));
+  }
+  
+  if (posts.length === 0) {
+    profilePostsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p class="empty-title">Нет ${activeTab === 'posts' ? 'постов' : 'лайков'}</p></div>`;
+    return;
+  }
+  
   profilePostsEl.innerHTML = '';
   posts.forEach(post => {
     const authorId = post.authorId || post.author_id;
@@ -487,23 +606,53 @@ function renderProfile() {
     if (!author) return;
     const isLiked = current ? (post.likes || []).includes(current.id) : false;
     const postTime = post.createdAt || new Date(post.created_at).getTime();
+    const avatarUrl = author.avatar_url || author.avatarUrl || "";
+    const displayName = author.display_name || author.displayName || "Пользователь";
+    const username = author.username || "unknown";
+    
     const postEl = document.createElement('article');
     postEl.className = 'post';
     postEl.dataset.postId = String(post.id);
+    
     postEl.innerHTML = `
       <header class="post-header">
-        <div class="post-avatar js-profile-link" data-user-id="${author.id}">${author.avatar_url || author.avatarUrl ? `<img src="${author.avatar_url || author.avatarUrl}" />` : (author.display_name || author.displayName)[0]?.toUpperCase() || "U"}</div>
-        <div><div class="post-author js-profile-link" data-user-id="${author.id}">${author.display_name || author.displayName}</div><div class="post-meta">${timeAgo(postTime)} • @${author.username}</div></div>
+        <div class="post-avatar js-profile-link" data-user-id="${author.id}" style="cursor: pointer;">
+          ${avatarUrl ? `<img src="${avatarUrl}" />` : displayName[0]?.toUpperCase() || "U"}
+        </div>
+        <div style="flex:1;">
+          <div class="post-author js-profile-link" data-user-id="${author.id}" style="cursor: pointer; font-weight: bold;">
+            ${displayName}
+          </div>
+          <div class="post-meta">${timeAgo(postTime)} • @${username}</div>
+        </div>
         ${current && current.id === author.id ? `<button class="post-delete-btn js-delete-post">🗑️</button>` : ''}
       </header>
-      <div class="post-content"><p class="post-text">${post.text}</p></div>
-      <footer class="post-footer"><button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button><button class="js-comment-toggle">💬 ${(post.comments || []).length}</button></footer>
-      <div class="comments" style="display:none"><div class="comments-list">${(post.comments || []).map(c => { const cu = getUser(c.authorId || c.author_id); return `<div class="comment-item"><span class="comment-author js-profile-link" data-user-id="${c.authorId || c.author_id}">${cu ? (cu.display_name || cu.displayName) : "Пользователь"}</span><span class="comment-text">${c.text}</span></div>`; }).join('')}</div><div class="comment-input-row"><input type="text" placeholder="Написать комментарий..." /><button class="js-comment-send">Отправить</button></div></div>
+      <div class="post-content"><p class="post-text">${post.text || ""}</p></div>
+      <footer class="post-footer">
+        <button class="js-like-btn">${isLiked ? "❤" : "🤍"} ${(post.likes || []).length}</button>
+        <button class="js-comment-toggle">💬 ${(post.comments || []).length}</button>
+      </footer>
+      <div class="comments" style="display:none">
+        <div class="comments-list">
+          ${(post.comments || []).map(c => {
+            const cu = getUser(c.authorId || c.author_id);
+            const cuName = cu ? (cu.display_name || cu.displayName || "Пользователь") : "Пользователь";
+            const cuId = c.authorId || c.author_id;
+            return `<div class="comment-item">
+              <span class="comment-author js-profile-link" data-user-id="${cuId}" style="cursor: pointer; font-weight: bold;">${cuName}</span>
+              <span class="comment-text">${c.text || ""}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="comment-input-row">
+          <input type="text" placeholder="Написать комментарий..." />
+          <button class="js-comment-send">Отправить</button>
+        </div>
+      </div>
     `;
     profilePostsEl.appendChild(postEl);
   });
 }
-
 function updateAllUI() { renderFeed(); renderProfile(); renderTopClans(); }
 
 // ============ ОБРАБОТЧИКИ ============
@@ -612,11 +761,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     const postEl = target.closest(".post");
     if (!postEl) return;
     const postId = Number(postEl.dataset.postId);
-    if (target.classList.contains("js-like-btn")) { toggleLike(postId); return; }
-    if (target.classList.contains("js-delete-post") || target.closest(".js-delete-post")) { deletePost(postId); return; }
-    if (target.classList.contains("js-comment-toggle") || target.closest(".js-comment-toggle")) { const commentsEl = postEl.querySelector(".comments"); if (commentsEl) commentsEl.style.display = commentsEl.style.display === "none" ? "block" : "none"; return; }
-    if (target.classList.contains("js-comment-send") || target.closest(".js-comment-send")) { const row = target.closest(".comment-input-row"); const input = row?.querySelector("input"); const text = input?.value.trim(); if (text) addComment(postId, text); return; }
-    if (target.classList.contains("js-profile-link") || target.closest(".js-profile-link")) { const el = target.closest(".js-profile-link"); const userId = Number(el.dataset.userId); if (userId) { viewedProfileId = userId; setActivePage("profile"); renderProfile(); } }
+  
+    // Лайк
+    if (target.classList.contains("js-like-btn")) {
+      toggleLike(postId);
+      return;
+    }
+  
+    // Удаление
+    if (target.classList.contains("js-delete-post") || target.closest(".js-delete-post")) {
+      deletePost(postId);
+      return;
+    }
+  
+    // Комментарии
+    if (target.classList.contains("js-comment-toggle") || target.closest(".js-comment-toggle")) {
+      const commentsEl = postEl.querySelector(".comments");
+      if (commentsEl) {
+        commentsEl.style.display = commentsEl.style.display === "none" ? "block" : "none";
+      }
+      return;
+    }
+  
+    // Отправка комментария
+    if (target.classList.contains("js-comment-send") || target.closest(".js-comment-send")) {
+      const row = target.closest(".comment-input-row");
+      const input = row?.querySelector("input");
+      const text = input?.value.trim();
+      if (text) {
+        addComment(postId, text);
+      }
+      return;
+    }
+  
+    // ПЕРЕХОД НА ПРОФИЛЬ - проверяем клик по аватарке или имени
+    const profileLink = target.closest(".js-profile-link");
+    if (profileLink) {
+      const userId = profileLink.getAttribute("data-user-id");
+      console.log("Клик по профилю, userId:", userId);
+      if (userId) {
+        viewedProfileId = userId;
+        setActivePage("profile");
+        renderProfile();
+      }
+      return;
+    }
   }
   
   feedListEl?.addEventListener("click", e => handleFeedClick(feedListEl, e));
@@ -633,6 +822,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (editAvatarFileInput) editAvatarFileInput.value = "";
     pendingAvatarRemove = false;
     profileEditError.textContent = "";
+    
+    // ========== СИНХРОНИЗАЦИЯ ПЕРЕКЛЮЧАТЕЛЯ ТЕМЫ ==========
+    // const themeToggleCheckbox = document.getElementById('theme-switch-toggle');
+    // if (themeToggleCheckbox) {
+      //const isDark = document.documentElement.hasAttribute('data-theme');
+     // themeToggleCheckbox.checked = isDark;
+    //}
+    // =====================================================
+    
     profileModalBackdrop.classList.add("visible");
   }
   function closeProfileModal() { profileModalBackdrop.classList.remove("visible"); }
@@ -677,6 +875,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.addEventListener('click', (e) => { if (!emojiBtn.contains(e.target) && !panel.contains(e.target)) panel.style.display = 'none'; });
   }
   initEmojiPicker();
+    // ========== ОБРАБОТЧИК ПЕРЕКЛЮЧАТЕЛЯ ТЕМЫ В МОДАЛЬНОМ ОКНЕ ==========
+    const themeToggleCheckbox = document.getElementById('theme-switch-toggle');
+    if (themeToggleCheckbox) {
+      themeToggleCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          // Включаем тёмную тему
+          document.documentElement.setAttribute('data-theme', 'dark');
+          localStorage.setItem('theme', 'dark');
+          console.log('Тёмная тема включена');
+        } else {
+          // Включаем светлую тему
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('theme', 'light');
+          console.log('Светлая тема включена');
+        }
+      });
+    }
   
   const loginUser = getCurrentUser();
   if (!loginUser) { authOverlay.classList.remove("hidden"); showAuthTab("login"); }
