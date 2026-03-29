@@ -1633,3 +1633,1001 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(20px);
 }
+/* ========== ПОИСК ПОЛЬЗОВАТЕЛЕЙ ========== */
+.search-results {
+  margin-bottom: 20px;
+}
+
+.search-placeholder {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 40px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.user-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.user-card-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-card-info {
+  flex: 1;
+}
+
+.user-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.user-card-username {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.user-card-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.user-card-stats span {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.user-card-clan {
+  display: inline-block;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.user-card-follow-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 30px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.user-card-follow-btn:hover {
+  transform: scale(1.05);
+}
+
+.user-card-follow-btn.following {
+  background: #f3f4f6;
+  color: var(--text-muted);
+}
+/* ========== ИСПРАВЛЕНИЯ ДЛЯ ТЁМНОЙ ТЕМЫ ========== */
+
+/* Кнопка выхода в тёмной теме */
+[data-theme="dark"] .sidebar-logout {
+  background: #3a3a3a !important;
+  color: #e0e0e0 !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .sidebar-logout:hover {
+  background: #4a4a4a !important;
+  color: #ffffff !important;
+}
+
+/* Активная кнопка навигации в тёмной теме (Лента) */
+[data-theme="dark"] .nav-item.active {
+  background: #2c2c2c !important;
+  color: var(--accent) !important;
+}
+
+[data-theme="dark"] .nav-item.active:hover {
+  background: #3a3a3a !important;
+}
+
+/* Неактивные кнопки навигации в тёмной теме */
+[data-theme="dark"] .nav-item {
+  color: #a0a0a0 !important;
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+/* Фон сайдбара в тёмной теме */
+[data-theme="dark"] .sidebar {
+  background: rgba(30, 30, 35, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid #3a3a3a;
+}
+
+/* Текст версии в тёмной теме */
+[data-theme="dark"] .logo-subtitle {
+  color: #888 !important;
+}
+
+/* Текст логотипа */
+[data-theme="dark"] .logo-title {
+  color: #ffffff !important;
+}
+/* ========== ПРОЗРАЧНЫЙ САЙДБАР ДЛЯ ВСЕХ ТЕМ ========== */
+
+/* Убираем фон и обводку у сайдбара */
+.sidebar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Для светлой темы */
+:root .sidebar {
+  background: transparent !important;
+}
+
+/* Для тёмной темы */
+[data-theme="dark"] .sidebar {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Кнопки навигации остаются с фоном только при наведении и активном состоянии */
+.nav-item {
+  background: transparent !important;
+}
+
+.nav-item:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.nav-item.active {
+  background: var(--accent-soft) !important;
+}
+
+[data-theme="dark"] .nav-item.active {
+  background: #2c2c2c !important;
+}
+
+/* Кнопка выхода */
+.sidebar-logout {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .sidebar-logout {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #e0e0e0 !important;
+}
+
+.sidebar-logout:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="dark"] .sidebar-logout:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+/* Стили для иконок в навигации */
+.nav-icon img {
+  width: 32px;
+  height: 32px;
+  display: block;
+  object-fit: contain;
+}
+/* ========== РАЗМЕР ИКОНОК ДЛЯ МОБИЛЬНЫХ ========== */
+
+/* Планшеты (до 1024px) */
+@media (max-width: 1024px) {
+  .nav-icon img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+}
+
+/* Телефоны (до 768px) */
+@media (max-width: 768px) {
+  .nav-icon img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  /* Если нужно увеличить отступы для удобного нажатия пальцем */
+  .nav-item {
+    padding: 10px 8px !important;
+  }
+}
+
+/* Маленькие телефоны (до 480px) */
+@media (max-width: 480px) {
+  .nav-icon img {
+    width: 38px !important;
+    height: 38px !important;
+  }
+}
+/* ========== АДАПТАЦИЯ КАРТОЧЕК ПОИСКА ДЛЯ МОБИЛЬНЫХ ========== */
+
+/* Планшеты (до 1024px) */
+@media (max-width: 1024px) {
+  .user-card {
+    padding: 14px;
+    gap: 12px;
+  }
+  
+  .user-card-avatar {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+  
+  .user-card-name {
+    font-size: 16px;
+  }
+  
+  .user-card-username {
+    font-size: 13px;
+  }
+  
+  .user-card-stats {
+    font-size: 11px;
+    gap: 12px;
+  }
+  
+  .user-card-follow-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+/* Телефоны (до 768px) */
+@media (max-width: 768px) {
+  .user-card {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .user-card-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+  
+  .user-card-info {
+    flex: 1;
+    min-width: 0; /* Чтобы текст не вылезал */
+  }
+  
+  .user-card-name {
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .user-card-username {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .user-card-stats {
+    font-size: 10px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .user-card-clan {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+  
+  .user-card-follow-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
+
+/* Маленькие телефоны (до 480px) */
+@media (max-width: 480px) {
+  .user-card {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    padding: 12px;
+  }
+  
+  .user-card-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  
+  .user-card-info {
+    width: 100%;
+  }
+  
+  .user-card-name {
+    font-size: 16px;
+    white-space: normal;
+  }
+  
+  .user-card-username {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  
+  .user-card-stats {
+    font-size: 11px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .user-card-follow-btn {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 6px 16px;
+    font-size: 12px;
+    width: auto;
+  }
+}
+/* ========== КАРТОЧКИ ПОИСКА ========== */
+.user-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+.user-card-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-username {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-clan {
+  display: inline-block;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.user-card-follow-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 30px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.user-card-follow-btn:hover {
+  transform: scale(1.02);
+  filter: brightness(1.05);
+}
+
+.user-card-follow-btn.following {
+  background: #f3f4f6;
+  color: var(--text-muted);
+  border: 1px solid var(--border-soft);
+}
+
+.user-card-follow-btn.following:hover {
+  background: #e5e7eb;
+}
+/* КАРТОЧКИ ПОИСКА */
+.user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.user-card:hover {
+  background: var(--accent-soft);
+}
+
+.user-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.user-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-card-info {
+  flex: 1;
+  margin-left: 12px;
+  min-width: 0;
+}
+
+.user-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-card-username {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-card-follow-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 30px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.user-card-follow-btn.following {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.user-card-follow-btn:hover {
+  transform: scale(1.02);
+}
+/* Кнопка чата в поиске */
+.user-card-chat-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.user-card-chat-btn:hover {
+  background: var(--accent-soft);
+  transform: scale(1.1);
+  color: var(--accent-dark);
+}
+
+.user-card-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-name-block {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+  .user-card-chat-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}
+/* Сообщения */
+.messages-container {
+  display: flex;
+  gap: 20px;
+  height: calc(100vh - 120px);
+  min-height: 400px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.conversations-list {
+  width: 320px;
+  border-right: 1px solid var(--border-soft);
+  overflow-y: auto;
+}
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.conversation-item:hover {
+  background: var(--accent-soft);
+}
+
+.conversation-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-name {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.conversation-last-message {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversation-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.conversation-unread {
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.chat-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.chat-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.chat-name {
+  font-weight: 700;
+}
+
+.chat-username {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+.message.outgoing {
+  align-self: flex-end;
+}
+
+.message.incoming {
+  align-self: flex-start;
+}
+
+.message-bubble {
+  padding: 8px 12px;
+  border-radius: 18px;
+  word-wrap: break-word;
+}
+
+.message.outgoing .message-bubble {
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message.incoming .message-bubble {
+  background: var(--accent-soft);
+  border-bottom-left-radius: 4px;
+}
+
+.message-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  margin-left: 8px;
+}
+
+.message.outgoing .message-time {
+  text-align: right;
+}
+
+.chat-input-area {
+  padding: 16px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  gap: 12px;
+}
+
+.chat-input-area textarea {
+  flex: 1;
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  padding: 10px;
+  resize: none;
+  font-size: 14px;
+  background: var(--bg-main);
+}
+
+.chat-input-area button {
+  padding: 10px 20px;
+}
+/* Поиск в сообщениях */
+.messages-search {
+  width: 100%;
+}
+
+.messages-search .search-input {
+  width: 100%;
+  border-radius: 30px;
+  border: 1px solid var(--border-soft);
+  padding: 10px 16px;
+  font-size: 14px;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.search-users-results {
+  width: 320px;
+  border-right: 1px solid var(--border-soft);
+  overflow-y: auto;
+  background: var(--bg-card);
+}
+
+.search-user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.search-user-item:hover {
+  background: var(--accent-soft);
+}
+
+.search-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.search-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-user-name {
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-user-username {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-user-start-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 30px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+  .search-users-results {
+    width: 100%;
+    max-height: 300px;
+  }
+}
+/* Поиск в сообщениях */
+.messages-search {
+  width: 100%;
+}
+
+.messages-search .search-input {
+  width: 100%;
+  border-radius: 30px;
+  border: 1px solid var(--border-soft);
+  padding: 10px 16px;
+  font-size: 14px;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.search-users-results {
+  width: 320px;
+  border-right: 1px solid var(--border-soft);
+  overflow-y: auto;
+  background: var(--bg-card);
+}
+
+.search-user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.search-user-item:hover {
+  background: var(--accent-soft);
+}
+
+.search-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.search-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-user-name {
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-user-username {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-user-start-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 30px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .search-users-results {
+    width: 100%;
+    max-height: 300px;
+  }
+}
