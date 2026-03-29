@@ -87,19 +87,34 @@
       </div> 
       <nav class="sidebar-nav">
         <button class="nav-item active" data-page="feed">
-          <span class="nav-icon">🏠</span>
+          <span class="nav-icon">
+            <img src="home.png" alt="Лента" style="width: 56px; height: 56px;">
+          </span>
           <span class="nav-label">Лента</span>
         </button>
         <button class="nav-item" data-page="search">
-          <span class="nav-icon">🔍</span>
+          <span class="nav-icon">
+            <img src="search.png.png" alt="Поиск" style="width: 42px; height: 42px;">
+          </span>
           <span class="nav-label">Поиск</span>
         </button>
+        <!-- НОВАЯ КНОПКА СООБЩЕНИЙ -->
+        <button class="nav-item" data-page="messages">
+          <span class="nav-icon">
+            💬
+          </span>
+          <span class="nav-label">Сообщения</span>
+        </button>
         <button class="nav-item" data-page="notifications">
-          <span class="nav-icon">🔔</span>
+          <span class="nav-icon">
+            <img src="bell.png" alt="Уведомления" style="width: 42px; height: 42px;">
+          </span>
           <span class="nav-label">Уведомления</span>
         </button>
         <button class="nav-item" data-page="profile">
-          <span class="nav-icon">👤</span>
+          <span class="nav-icon">
+            <img src="profile.png.png" alt="Профиль" style="width: 42px; height: 42px;">
+          </span>
           <span class="nav-label">Профиль</span>
         </button>
       </nav>
@@ -145,10 +160,22 @@
         <header class="topbar">
           <input
             class="search-input"
+            id="search-input"
             type="text"
-            placeholder="Поиск людей, кланов и хештегов"
+            placeholder="Поиск людей по юзернейму..."
+            autocomplete="off"
           />
         </header>
+        
+        <!-- Результаты поиска -->
+        <section class="search-results" id="search-results">
+          <div class="search-placeholder">
+            <div class="empty-icon">🔍</div>
+            <p class="empty-title">Поиск пользователей</p>
+            <p class="empty-text">Введите юзернейм для поиска</p>
+          </div>
+        </section>
+        
         <section class="search-columns">
           <div class="search-block">
             <h2 class="block-title">Топ кланов</h2>
@@ -169,19 +196,58 @@
         </section>
       </section>
 
-      <!-- NOTIFICATIONS -->
-      <section class="page page-notifications" id="page-notifications">
-        <header class="topbar">
-          <h1 class="page-title">Уведомления</h1>
-        </header>
-        <div class="empty-state">
-          <div class="empty-icon">🔔</div>
-          <p class="empty-title">Нет уведомлений</p>
-          <p class="empty-text">
-            Когда появятся новые лайки, комментарии или подписки — вы увидите их здесь.
-          </p>
-        </div>
-      </section>
+            <!-- MESSAGES -->
+            <section class="page page-messages" id="page-messages">
+              <header class="topbar">
+                <div class="messages-search">
+                  <input
+                    type="text"
+                    id="messages-search-input"
+                    placeholder="Поиск пользователя по юзернейму..."
+                    class="search-input"
+                  />
+                </div>
+              </header>
+              
+              <div class="messages-container">
+                <!-- Список диалогов -->
+                <div class="conversations-list" id="conversations-list">
+                  <div class="empty-state">
+                    <div class="empty-icon">💬</div>
+                    <p class="empty-title">Нет сообщений</p>
+                    <p class="empty-text">Начните диалог с пользователем</p>
+                  </div>
+                </div>
+                
+                <!-- Результаты поиска пользователей -->
+                <div class="search-users-results" id="search-users-results" style="display: none;">
+                  <!-- Здесь будут результаты поиска -->
+                </div>
+                
+                <!-- Окно чата -->
+                <div class="chat-window" id="chat-window">
+                  <div class="chat-header" id="chat-header">
+                    <div class="chat-user-info" id="chat-user-info" style="cursor: pointer;">
+                      <div class="chat-avatar" id="chat-avatar">?</div>
+                      <div>
+                        <div class="chat-name" id="chat-name">Выберите диалог</div>
+                        <div class="chat-username" id="chat-username"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="chat-messages" id="chat-messages">
+                    <div class="empty-chat">
+                      <div class="empty-icon">💬</div>
+                      <p>Выберите диалог, чтобы начать общение</p>
+                    </div>
+                  </div>
+                  <div class="chat-input-area" id="chat-input-area" style="display: none;">
+                    <textarea id="message-input" placeholder="Написать сообщение..." rows="2"></textarea>
+                    <button id="send-message-btn" class="btn-primary">Отправить</button>
+                  </div>
+                </div>
+              </div>
+            </section>
 
       <!-- PROFILE -->
       <section class="page page-profile" id="page-profile">
@@ -262,79 +328,79 @@
     </main>
   </div>
 
-    <!-- PROFILE EDIT MODAL -->
-    <div class="modal-backdrop" id="profile-modal-backdrop">
-      <div class="modal" role="dialog" aria-modal="true">
-        <div class="modal-header">
-          <h2>Редактирование профиля</h2>
-          <button class="modal-close" id="profile-modal-close">✕</button>
-        </div>
-        <form id="profile-edit-form" class="modal-body">
-          <label class="field">
-            <span>Имя (ник)</span>
-            <input id="edit-displayname" type="text" required />
-          </label>
-          <label class="field">
-            <span>Юзернейм (@username)</span>
-            <input id="edit-username" type="text" required />
-          </label>
-          <label class="field">
-            <span>Клан</span>
-            <select id="edit-clan">
-              <option value="">Без клана</option>
-              <option value="Клан ФТК">Клан ФТК</option>
-              <option value="Клан АТФ">Клан АТФ</option> 
-              <option value="Клан ФГДИЭ">Клан ФГДИЭ</option>
-              <option value="Клан МСФ">Клан МСФ</option>
-              <option value="Клан МТФ">Клан МТФ</option> 
-              <option value="Клан ФММП">Клан ФММП</option>
-              <option value="Клан ЭФ">Клан ЭФ</option>
-              <option value="Клан ФИТР">Клан ФИТР</option> 
-              <option value="Клан ФТУГ">Клан ФТУГ</option>
-              <option value="Клан ИПФ">Клан ИПФ</option>
-              <option value="Клан ФЭС">Клан ФЭС</option> 
-              <option value="Клан АФ">Клан АФ</option>
-              <option value="Клан СФ">Клан СФ</option>
-              <option value="Клан ПСФ">Клан ПСФ</option>
-              <option value="Клан ВТФ">Клан ВТФ</option> 
-              <option value="Клан СТФ">Клан СТФ</option> 
-            </select>
-          </label>
-          <label class="field">
-            <span>Аватарка (картинка)</span>
-            <input id="edit-avatar-file" type="file" accept="image/*" />
-            <button
-              type="button"
-              class="auth-inline-link"
-              id="edit-avatar-remove"
-            >
-              Удалить аватарку
-            </button>
-          </label>
-          
-          <!-- ========== НОВЫЙ ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ ========== -->
-          <div class="theme-switch-row">
-            <div class="theme-switch-label">
-              <span>🌙 Тёмная тема</span>
-              <span class="theme-switch-desc">Включите для комфортного просмотра в темноте</span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="theme-switch-toggle">
-              <span class="slider round"></span>
-            </label>
-          </div>
-          <!-- =========================================== -->
-          
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" id="profile-modal-cancel">
-              Отмена
-            </button>
-            <button type="submit" class="btn-primary">Сохранить</button>
-          </div>
-          <p class="auth-error" id="profile-edit-error"></p>
-        </form>
+  <!-- PROFILE EDIT MODAL -->
+  <div class="modal-backdrop" id="profile-modal-backdrop">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Редактирование профиля</h2>
+        <button class="modal-close" id="profile-modal-close">✕</button>
       </div>
+      <form id="profile-edit-form" class="modal-body">
+        <label class="field">
+          <span>Имя (ник)</span>
+          <input id="edit-displayname" type="text" required />
+        </label>
+        <label class="field">
+          <span>Юзернейм (@username)</span>
+          <input id="edit-username" type="text" required />
+        </label>
+        <label class="field">
+          <span>Клан</span>
+          <select id="edit-clan">
+            <option value="">Без клана</option>
+            <option value="Клан ФТК">Клан ФТК</option>
+            <option value="Клан АТФ">Клан АТФ</option> 
+            <option value="Клан ФГДИЭ">Клан ФГДИЭ</option>
+            <option value="Клан МСФ">Клан МСФ</option>
+            <option value="Клан МТФ">Клан МТФ</option> 
+            <option value="Клан ФММП">Клан ФММП</option>
+            <option value="Клан ЭФ">Клан ЭФ</option>
+            <option value="Клан ФИТР">Клан ФИТР</option> 
+            <option value="Клан ФТУГ">Клан ФТУГ</option>
+            <option value="Клан ИПФ">Клан ИПФ</option>
+            <option value="Клан ФЭС">Клан ФЭС</option> 
+            <option value="Клан АФ">Клан АФ</option>
+            <option value="Клан СФ">Клан СФ</option>
+            <option value="Клан ПСФ">Клан ПСФ</option>
+            <option value="Клан ВТФ">Клан ВТФ</option> 
+            <option value="Клан СТФ">Клан СТФ</option> 
+          </select>
+        </label>
+        <label class="field">
+          <span>Аватарка (картинка)</span>
+          <input id="edit-avatar-file" type="file" accept="image/*" />
+          <button
+            type="button"
+            class="auth-inline-link"
+            id="edit-avatar-remove"
+          >
+            Удалить аватарку
+          </button>
+        </label>
+        
+        <!-- ========== НОВЫЙ ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ ========== -->
+        <div class="theme-switch-row">
+          <div class="theme-switch-label">
+            <span>🌙 Тёмная тема</span>
+            <span class="theme-switch-desc">Включите для комфортного просмотра в темноте</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="theme-switch-toggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <!-- =========================================== -->
+        
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="profile-modal-cancel">
+            Отмена
+          </button>
+          <button type="submit" class="btn-primary">Сохранить</button>
+        </div>
+        <p class="auth-error" id="profile-edit-error"></p>
+      </form>
     </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
